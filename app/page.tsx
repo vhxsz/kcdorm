@@ -45,6 +45,7 @@ export type MenuItem = {
   tag: string;
   image_url?: string | null;
   category?: string;
+  extras?: { name: string; price: number }[];
 };
 const demoItems: MenuItem[] = [
   {
@@ -82,12 +83,20 @@ const demoItems: MenuItem[] = [
 export default function Home() {
   const [items, setItems] = useState<MenuItem[]>(demoItems);
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [cartExtras, setCartExtras] = useState<Record<string, string[]>>({});
+  const [selectedProduct, setSelectedProduct] = useState<MenuItem | null>(null);
+  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
   const [category, setCategory] = useState("All");
   const count = Object.values(cart).reduce((a, b) => a + b, 0);
   const total = useMemo(
     () =>
-      items.reduce((sum, item) => sum + item.price * (cart[item.id] || 0), 0),
-    [cart],
+      items.reduce((sum, item) => {
+        const extrasTotal = (item.extras || [])
+          .filter((extra) => (cartExtras[item.id] || []).includes(extra.name))
+          .reduce((value, extra) => value + Number(extra.price), 0);
+        return sum + (item.price + extrasTotal) * (cart[item.id] || 0);
+      }, 0),
+    [cart, cartExtras, items],
   );
   const add = (id: string) =>
     setCart((current) => ({ ...current, [id]: (current[id] || 0) + 1 }));
@@ -187,6 +196,7 @@ export default function Home() {
                   items={items}
                   total={total}
                   cart={cart}
+                  cartExtras={cartExtras}
                   add={add}
                   remove={remove}
                 />
@@ -243,7 +253,7 @@ export default function Home() {
           </button>
         </div>
         <div className="mb-7 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {["All", "Pizzas", "Sides", "Drinks"].map((name) => (
+          {["All", "Pizzas", "Snacks", "Sides", "Drinks"].map((name) => (
             <button
               key={name}
               onClick={() => setCategory(name)}
@@ -254,74 +264,160 @@ export default function Home() {
           ))}
         </div>
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => (
-            <article
-              key={item.id}
-              className="group overflow-hidden rounded-[26px] border border-[#dfe5f1] bg-white shadow-[0_8px_30px_rgba(25,39,78,.05)] transition hover:-translate-y-1 hover:shadow-[0_18px_50px_rgba(25,39,78,.10)]"
-            >
-              <div className="relative h-56 overflow-hidden">
-                <img
-                  src={item.image_url || "/menu-food.jpg"}
-                  alt={item.title}
-                  className="h-full w-full scale-[1.35] object-cover transition duration-500 group-hover:scale-[1.42]"
-                  style={{ objectPosition: item.pos }}
-                />
-                <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-xs font-black shadow-sm">
-                  {item.tag}
-                </span>
-                <span className="absolute bottom-4 right-4 rounded-full bg-[#172039]/90 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
-                  {item.stock} available
-                </span>
-              </div>
-              <div className="p-5">
-                <h3 className="text-xl font-black tracking-[-.025em]">
-                  {item.title}
-                </h3>
-                <p className="mt-2 min-h-12 text-sm leading-relaxed text-[#6d7893]">
-                  {item.description}
-                </p>
-                <div className="mt-5 flex items-end justify-between">
-                  <div>
-                    <p className="text-2xl font-black">
-                      ${item.price.toFixed(2)}
-                    </p>
-                    <p className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-[#6d7893]">
-                      <Clock3 className="size-3.5" /> {item.time} min
-                    </p>
-                  </div>
-                  {cart[item.id] ? (
-                    <div className="flex items-center gap-3 rounded-full bg-[#edf1ff] p-1">
-                      <button
-                        onClick={() => remove(item.id)}
-                        aria-label={`Remove ${item.title}`}
-                        className="grid size-9 place-items-center rounded-full bg-white"
-                      >
-                        <Minus className="size-4" />
-                      </button>
-                      <b>{cart[item.id]}</b>
-                      <button
-                        onClick={() => add(item.id)}
-                        aria-label={`Add ${item.title}`}
-                        className="grid size-9 place-items-center rounded-full bg-[#2457ff] text-white"
-                      >
-                        <Plus className="size-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <Button
-                      onClick={() => add(item.id)}
-                      className="size-11 rounded-full bg-[#2457ff] p-0 hover:bg-[#1744d4]"
-                      aria-label={`Add ${item.title}`}
-                    >
-                      <Plus className="size-5" />
-                    </Button>
-                  )}
+          {items
+            .filter((item) => category === "All" || item.category === category)
+            .map((item) => (
+              <article
+                key={item.id}
+                onClick={() => {
+                  setSelectedProduct(item);
+                  setSelectedExtras(cartExtras[item.id] || []);
+                }}
+                className="group overflow-hidden rounded-[26px] border border-[#dfe5f1] bg-white shadow-[0_8px_30px_rgba(25,39,78,.05)] transition hover:-translate-y-1 hover:shadow-[0_18px_50px_rgba(25,39,78,.10)]"
+              >
+                <div className="relative h-56 overflow-hidden">
+                  <img
+                    src={item.image_url || "/menu-food.jpg"}
+                    alt={item.title}
+                    className="h-full w-full scale-[1.35] object-cover transition duration-500 group-hover:scale-[1.42]"
+                    style={{ objectPosition: item.pos }}
+                  />
+                  <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-xs font-black shadow-sm">
+                    {item.tag}
+                  </span>
+                  <span className="absolute bottom-4 right-4 rounded-full bg-[#172039]/90 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
+                    {item.stock} available
+                  </span>
                 </div>
-              </div>
-            </article>
-          ))}
+                <div className="p-5">
+                  <h3 className="text-xl font-black tracking-[-.025em]">
+                    {item.title}
+                  </h3>
+                  <p className="mt-2 min-h-12 text-sm leading-relaxed text-[#6d7893]">
+                    {item.description}
+                  </p>
+                  <div className="mt-5 flex items-end justify-between">
+                    <div>
+                      <p className="text-2xl font-black">
+                        ${item.price.toFixed(2)}
+                      </p>
+                      <p className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-[#6d7893]">
+                        <Clock3 className="size-3.5" /> {item.time} min
+                      </p>
+                    </div>
+                    {cart[item.id] ? (
+                      <div className="flex items-center gap-3 rounded-full bg-[#edf1ff] p-1">
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            remove(item.id);
+                          }}
+                          aria-label={`Remove ${item.title}`}
+                          className="grid size-9 place-items-center rounded-full bg-white"
+                        >
+                          <Minus className="size-4" />
+                        </button>
+                        <b>{cart[item.id]}</b>
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            add(item.id);
+                          }}
+                          aria-label={`Add ${item.title}`}
+                          className="grid size-9 place-items-center rounded-full bg-[#2457ff] text-white"
+                        >
+                          <Plus className="size-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (item.extras?.length) {
+                            setSelectedProduct(item);
+                            setSelectedExtras([]);
+                          } else add(item.id);
+                        }}
+                        className="size-11 rounded-full bg-[#2457ff] p-0 hover:bg-[#1744d4]"
+                        aria-label={`Add ${item.title}`}
+                      >
+                        <Plus className="size-5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
         </div>
       </section>
+      <Dialog
+        open={Boolean(selectedProduct)}
+        onOpenChange={(open) => !open && setSelectedProduct(null)}
+      >
+        <DialogContent className="rounded-[28px] sm:max-w-lg">
+          {selectedProduct && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-black">
+                  Customize {selectedProduct.title}
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-[#6d7893]">
+                Choose any extras you would like to add.
+              </p>
+              <div className="space-y-2 py-3">
+                {selectedProduct.extras?.length ? (
+                  selectedProduct.extras.map((extra) => (
+                    <label
+                      key={extra.name}
+                      className="flex cursor-pointer items-center justify-between rounded-2xl border p-4"
+                    >
+                      <span className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedExtras.includes(extra.name)}
+                          onChange={() =>
+                            setSelectedExtras((current) =>
+                              current.includes(extra.name)
+                                ? current.filter((name) => name !== extra.name)
+                                : [...current, extra.name],
+                            )
+                          }
+                        />
+                        <b>{extra.name}</b>
+                      </span>
+                      <span>+${Number(extra.price).toFixed(2)}</span>
+                    </label>
+                  ))
+                ) : (
+                  <p className="rounded-2xl bg-[#f3f6fb] p-4">
+                    No extras are available for this item.
+                  </p>
+                )}
+              </div>
+              <Button
+                className="h-12 w-full rounded-2xl bg-[#2457ff] font-bold"
+                onClick={() => {
+                  setCartExtras((current) => ({
+                    ...current,
+                    [selectedProduct.id]: selectedExtras,
+                  }));
+                  add(selectedProduct.id);
+                  setSelectedProduct(null);
+                }}
+              >
+                Add to order · $
+                {(
+                  selectedProduct.price +
+                  (selectedProduct.extras || [])
+                    .filter((extra) => selectedExtras.includes(extra.name))
+                    .reduce((sum, extra) => sum + Number(extra.price), 0)
+                ).toFixed(2)}
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
       {count > 0 && (
         <div className="fixed bottom-5 left-1/2 z-30 flex w-[calc(100%-40px)] max-w-md -translate-x-1/2 items-center justify-between rounded-2xl bg-[#172039] px-5 py-4 text-white shadow-2xl md:hidden">
           <span className="font-bold">
@@ -338,12 +434,14 @@ function Cart({
   items,
   total,
   cart,
+  cartExtras,
   add,
   remove,
 }: {
   items: MenuItem[];
   total: number;
   cart: Record<string, number>;
+  cartExtras: Record<string, string[]>;
   add: (id: string) => void;
   remove: (id: string) => void;
 }) {
@@ -385,6 +483,11 @@ function Cart({
                   <p className="text-sm text-[#6d7893]">
                     ${item.price.toFixed(2)}
                   </p>
+                  {(cartExtras[item.id] || []).length > 0 && (
+                    <p className="text-xs text-[#2457ff]">
+                      + {cartExtras[item.id].join(", ")}
+                    </p>
+                  )}
                   <div className="mt-2 flex items-center gap-3">
                     <button
                       onClick={() => remove(item.id)}
@@ -412,7 +515,12 @@ function Cart({
             <span>Total</span>
             <b className="text-2xl">${total.toFixed(2)} CAD</b>
           </div>
-          <Checkout items={items} cart={cart} total={total} />
+          <Checkout
+            items={items}
+            cart={cart}
+            cartExtras={cartExtras}
+            total={total}
+          />
         </div>
       )}
     </div>
@@ -422,10 +530,12 @@ function Cart({
 function Checkout({
   items,
   cart,
+  cartExtras,
   total,
 }: {
   items: MenuItem[];
   cart: Record<string, number>;
+  cartExtras: Record<string, string[]>;
   total: number;
 }) {
   const [sent, setSent] = useState(false);
@@ -440,7 +550,11 @@ function Checkout({
       payment_method: form.get("payment"),
       items: items
         .filter((i) => cart[i.id])
-        .map((i) => ({ product_id: i.id, quantity: cart[i.id], extras: [] })),
+        .map((i) => ({
+          product_id: i.id,
+          quantity: cart[i.id],
+          extras: cartExtras[i.id] || [],
+        })),
     };
     const response = await fetch("/api/orders", {
       method: "POST",
@@ -577,6 +691,20 @@ export function AdminPanel({
   const [authenticated, setAuthenticated] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
+  const [orders, setOrders] = useState<
+    Array<{
+      id: string;
+      order_number: number;
+      customer_name: string;
+      room_number: string;
+      total: number;
+      status: string;
+      created_at: string;
+      order_items?: Array<{ title_snapshot: string; quantity: number }>;
+    }>
+  >([]);
+  const [cost, setCost] = useState("");
+  const [sellingPrice, setSellingPrice] = useState("");
   useEffect(() => {
     try {
       createSupabaseClient()
@@ -598,11 +726,32 @@ export function AdminPanel({
     }
   }
   async function saveProduct(form: FormData) {
-    setSaveMessage("Salvando...");
+    setSaveMessage("Saving...");
     try {
       const supabase = createSupabaseClient();
       const { data } = await supabase.auth.getSession();
       if (!data.session) throw new Error();
+      let imageUrl: string | null = null;
+      const image = form.get("image");
+      if (image instanceof File && image.size) {
+        const upload = new FormData();
+        upload.append("file", image);
+        const uploadResponse = await fetch("/api/uploads", {
+          method: "POST",
+          headers: { authorization: `Bearer ${data.session.access_token}` },
+          body: upload,
+        });
+        const uploadData = (await uploadResponse.json()) as { url?: string };
+        if (!uploadResponse.ok || !uploadData.url) throw new Error();
+        imageUrl = uploadData.url;
+      }
+      const extras = String(form.get("extras") || "")
+        .split("\n")
+        .map((line) => {
+          const [name, price] = line.split("|");
+          return { name: name?.trim(), price: Number(price) };
+        })
+        .filter((extra) => extra.name && Number.isFinite(extra.price));
       const response = await fetch("/api/products", {
         method: "POST",
         headers: {
@@ -616,8 +765,8 @@ export function AdminPanel({
           stock: Number(form.get("stock")),
           delivery_minutes: Number(form.get("delivery_minutes")),
           category: String(form.get("category") || "Pizzas"),
-          extras: [],
-          image_url: null,
+          extras,
+          image_url: imageUrl,
         }),
       });
       const product = (await response.json()) as Record<string, unknown>;
@@ -634,6 +783,44 @@ export function AdminPanel({
       setSaveMessage("We could not save this item.");
     }
   }
+  async function loadOrders() {
+    const { data } = await createSupabaseClient().auth.getSession();
+    if (!data.session) return;
+    const response = await fetch("/api/admin/orders", {
+      headers: { authorization: `Bearer ${data.session.access_token}` },
+    });
+    if (response.ok) setOrders(await response.json());
+  }
+  async function deleteOrder(id: string) {
+    if (!confirm("Delete this sale permanently?")) return;
+    const { data } = await createSupabaseClient().auth.getSession();
+    if (!data.session) return;
+    const response = await fetch(`/api/admin/orders?id=${id}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${data.session.access_token}` },
+    });
+    if (response.ok)
+      setOrders((current) => current.filter((order) => order.id !== id));
+  }
+  async function recordSale(form: FormData) {
+    const productId = String(form.get("product"));
+    const quantity = Number(form.get("quantity"));
+    const response = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        customer_name: String(form.get("customer") || "Walk-in"),
+        room_number: String(form.get("room") || "Counter"),
+        scheduled_for: null,
+        payment_method: String(form.get("payment") || "cash"),
+        items: [{ product_id: productId, quantity, extras: [] }],
+      }),
+    });
+    if (response.ok) await loadOrders();
+  }
+  useEffect(() => {
+    if (authenticated) void loadOrders();
+  }, [authenticated]);
   if (!authenticated)
     return (
       <section className="mx-auto grid min-h-[75vh] max-w-md place-items-center px-5">
@@ -710,7 +897,7 @@ export function AdminPanel({
           <Dialog>
             <DialogTrigger asChild>
               <Button className="rounded-full bg-[#2457ff]">
-                <Plus /> Novo item
+                <Plus /> New item
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[92vh] overflow-auto rounded-[28px]">
@@ -720,12 +907,20 @@ export function AdminPanel({
                 </DialogTitle>
               </DialogHeader>
               <form action={saveProduct} className="grid gap-4 pt-2">
-                <div className="grid h-32 place-items-center rounded-2xl border-2 border-dashed border-[#cfd7e8] bg-[#f7f9fd] text-center text-sm text-[#6d7893]">
+                <label className="grid h-32 cursor-pointer place-items-center rounded-2xl border-2 border-dashed border-[#cfd7e8] bg-[#f7f9fd] text-center text-sm text-[#6d7893]">
                   <div>
                     <ImagePlus className="mx-auto mb-2" />
                     Add product photo
+                    <br />
+                    <small>JPG, PNG, or WebP · max 5 MB</small>
                   </div>
-                </div>
+                  <input
+                    name="image"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                  />
+                </label>
                 <div className="space-y-2">
                   <Label>Title</Label>
                   <Input
@@ -773,8 +968,27 @@ export function AdminPanel({
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Adicionais</Label>
-                  <Input name="category" placeholder="Pizzas" />
+                  <Label>Category</Label>
+                  <select
+                    name="category"
+                    className="h-11 w-full rounded-xl border bg-white px-3"
+                  >
+                    <option>Pizzas</option>
+                    <option>Snacks</option>
+                    <option>Sides</option>
+                    <option>Drinks</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Extras and prices</Label>
+                  <textarea
+                    name="extras"
+                    className="min-h-24 w-full rounded-xl border p-3 text-sm"
+                    placeholder={"Extra cheese|3.00\nStuffed crust|4.50"}
+                  />
+                  <p className="text-xs text-[#6d7893]">
+                    Enter one extra per line using Name|Price.
+                  </p>
                 </div>
                 {saveMessage && (
                   <p className="text-sm font-bold text-[#2457ff]">
@@ -796,15 +1010,15 @@ export function AdminPanel({
         <Stat
           icon={<ShoppingBag />}
           label="Orders today"
-          value="18"
-          detail="4 being prepared"
+          value={String(orders.length)}
+          detail={`${orders.filter((order) => order.status === "preparing").length} being prepared`}
           color="bg-[#edf1ff] text-[#2457ff]"
         />
         <Stat
           icon={<BarChart3 />}
           label="Sales today"
-          value="$428"
-          detail="+12% vs. ontem"
+          value={`$${orders.reduce((sum, order) => sum + Number(order.total), 0).toFixed(2)}`}
+          detail="Recorded sales"
           color="bg-[#fff6cd] text-[#8a6c00]"
         />
         <Stat
@@ -826,35 +1040,89 @@ export function AdminPanel({
           <TabsTrigger value="settings" className="rounded-full px-5">
             Telegram
           </TabsTrigger>
+          <TabsTrigger value="finance" className="rounded-full px-5">
+            Profit margin
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="orders">
+          <form
+            action={recordSale}
+            className="mb-5 grid gap-3 rounded-[26px] border bg-white p-5 sm:grid-cols-6"
+          >
+            <Input required name="customer" placeholder="Customer name" />
+            <Input name="room" placeholder="Room" />
+            <select
+              required
+              name="product"
+              className="h-9 rounded-lg border bg-white px-3 text-sm"
+            >
+              <option value="">Select product</option>
+              {items.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title}
+                </option>
+              ))}
+            </select>
+            <Input
+              required
+              name="quantity"
+              type="number"
+              min="1"
+              defaultValue="1"
+            />
+            <select
+              name="payment"
+              className="h-9 rounded-lg border bg-white px-3 text-sm"
+            >
+              <option value="cash">Cash</option>
+              <option value="etransfer">Interac e-Transfer</option>
+            </select>
+            <Button type="submit" className="bg-[#2457ff]">
+              Record sale
+            </Button>
+          </form>
           <div className="overflow-hidden rounded-[26px] border bg-white">
-            {[
-              [
-                "#1048",
-                "Mariana · 407",
-                "2 items · $41.00",
-                "19:30",
-                "Scheduled",
-              ],
-              ["#1047", "Lucas · 212", "1 item · $22.00", "Now", "Preparing"],
-              ["#1046", "Sophie · 815", "3 items · $49.00", "Now", "Ready"],
-            ].map((o, i) => (
-              <div
-                key={o[0]}
-                className="grid gap-3 border-b p-5 last:border-0 sm:grid-cols-[80px_1fr_1fr_100px_120px] sm:items-center"
-              >
-                <b>{o[0]}</b>
-                <span>{o[1]}</span>
-                <span className="text-[#6d7893]">{o[2]}</span>
-                <span className="font-bold">{o[3]}</span>
-                <span
-                  className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${i === 2 ? "bg-[#eaf8ed] text-[#27803c]" : i === 1 ? "bg-[#fff6cd] text-[#8a6c00]" : "bg-[#edf1ff] text-[#2457ff]"}`}
+            {orders.length === 0 ? (
+              <p className="p-8 text-center text-[#6d7893]">
+                No sales recorded yet.
+              </p>
+            ) : (
+              orders.map((order, i) => (
+                <div
+                  key={order.id}
+                  className="grid gap-3 border-b p-5 last:border-0 sm:grid-cols-[80px_1fr_1fr_100px_120px_80px] sm:items-center"
                 >
-                  {o[4]}
-                </span>
-              </div>
-            ))}
+                  <b>#{order.order_number}</b>
+                  <span>
+                    {order.customer_name} · {order.room_number}
+                  </span>
+                  <span className="text-[#6d7893]">
+                    {order.order_items?.reduce(
+                      (sum, item) => sum + item.quantity,
+                      0,
+                    ) || 0}{" "}
+                    items · ${Number(order.total).toFixed(2)}
+                  </span>
+                  <span className="font-bold">
+                    {new Date(order.created_at).toLocaleDateString("en-CA")}
+                  </span>
+                  <span
+                    className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${i === 2 ? "bg-[#eaf8ed] text-[#27803c]" : i === 1 ? "bg-[#fff6cd] text-[#8a6c00]" : "bg-[#edf1ff] text-[#2457ff]"}`}
+                  >
+                    {order.status}
+                  </span>
+                  <Button
+                    type="button"
+                    onClick={() => deleteOrder(order.id)}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600"
+                  >
+                    Delete
+                  </Button>
+                </div>
+              ))
+            )}
           </div>
         </TabsContent>
         <TabsContent value="menu">
@@ -877,7 +1145,7 @@ export function AdminPanel({
                   </p>
                 </div>
                 <div className="text-right">
-                  <b>{item.stock} un.</b>
+                  <b>{item.stock} units</b>
                   <p className="text-xs text-[#6d7893]">in stock</p>
                 </div>
                 <Button variant="outline" size="sm" className="rounded-full">
@@ -900,6 +1168,59 @@ export function AdminPanel({
             <div className="mt-5 grid max-w-xl gap-3 sm:grid-cols-[1fr_auto]">
               <Input placeholder="Telegram bot token" type="password" />
               <Button className="rounded-xl bg-[#172039]">Connect bot</Button>
+            </div>
+          </div>
+        </TabsContent>
+        <TabsContent value="finance">
+          <div className="grid gap-5 rounded-[26px] border bg-white p-7 md:grid-cols-2">
+            <div>
+              <h3 className="text-2xl font-black">Profit margin calculator</h3>
+              <p className="mt-2 text-[#6d7893]">
+                Compare your food cost with the selling price before publishing
+                an item.
+              </p>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Product cost (CAD)</Label>
+                  <Input
+                    value={cost}
+                    onChange={(event) => setCost(event.target.value)}
+                    type="number"
+                    step="0.01"
+                    placeholder="8.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Selling price (CAD)</Label>
+                  <Input
+                    value={sellingPrice}
+                    onChange={(event) => setSellingPrice(event.target.value)}
+                    type="number"
+                    step="0.01"
+                    placeholder="20.00"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="grid place-items-center rounded-3xl bg-[#172039] p-8 text-center text-white">
+              <div>
+                <p className="text-sm text-white/60">Gross profit margin</p>
+                <p className="mt-2 text-6xl font-black">
+                  {Number(sellingPrice) > 0
+                    ? (
+                        ((Number(sellingPrice) - Number(cost)) /
+                          Number(sellingPrice)) *
+                        100
+                      ).toFixed(1)
+                    : "0.0"}
+                  %
+                </p>
+                <p className="mt-3 text-white/70">
+                  Profit per item: $
+                  {Math.max(0, Number(sellingPrice) - Number(cost)).toFixed(2)}{" "}
+                  CAD
+                </p>
+              </div>
             </div>
           </div>
         </TabsContent>

@@ -63,6 +63,7 @@ create policy "admins insert products" on public.products for insert to authenti
 create policy "admins update products" on public.products for update to authenticated using (private.is_admin()) with check (private.is_admin());
 create policy "admins read orders" on public.orders for select to authenticated using (private.is_admin());
 create policy "admins update orders" on public.orders for update to authenticated using (private.is_admin()) with check (private.is_admin());
+create policy "admins delete orders" on public.orders for delete to authenticated using (private.is_admin());
 create policy "admins read order items" on public.order_items for select to authenticated using (private.is_admin());
 
 create or replace function public.place_order(payload jsonb) returns jsonb
@@ -72,7 +73,7 @@ begin
   for line in select * from jsonb_array_elements(payload->'items') loop
     select * into product from public.products where id = (line->>'product_id')::uuid and active = true for update;
     if product.id is null or product.stock < (line->>'quantity')::integer then raise exception 'Item unavailable'; end if;
-    amount := amount + product.price * (line->>'quantity')::integer;
+    amount := amount + (product.price + coalesce((select sum((extra->>'price')::numeric) from jsonb_array_elements(product.extras) extra where extra->>'name' in (select jsonb_array_elements_text(coalesce(line->'extras','[]'::jsonb)))),0)) * (line->>'quantity')::integer;
   end loop;
   insert into public.orders(customer_name,room_number,scheduled_for,payment_method,status,total)
   values(payload->>'customer_name',payload->>'room_number',nullif(payload->>'scheduled_for','')::timestamptz,payload->>'payment_method',case when payload->>'scheduled_for' is null then 'new' else 'scheduled' end,amount) returning * into new_order;
@@ -96,6 +97,6 @@ create policy "admins delete product images" on storage.objects for delete to au
 grant usage on schema public to anon, authenticated;
 grant select on public.products to anon, authenticated;
 grant select, insert, update, delete on public.products to authenticated;
-grant select, update on public.orders to authenticated;
+grant select, update, delete on public.orders to authenticated;
 grant select on public.order_items to authenticated;
 grant select on public.admin_users to authenticated;
