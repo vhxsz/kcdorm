@@ -35,12 +35,29 @@ export async function POST(request: Request) {
     const token = process.env.TELEGRAM_BOT_TOKEN,
       chatId = process.env.TELEGRAM_CHAT_ID;
     if (token && chatId) {
+      const { data: orderItems, error: orderItemsError } = await supabase
+        .from("order_items")
+        .select("title_snapshot,quantity,extras")
+        .eq("order_id", order.id);
+      if (orderItemsError) throw orderItemsError;
+
       const when = parsed.data.scheduled_for
         ? new Date(parsed.data.scheduled_for).toLocaleString("en-CA", {
             timeZone: "America/Toronto",
           })
         : "As soon as possible";
-      const text = `🔔 New order #${order.order_number}\n👤 ${parsed.data.customer_name} · Room ${parsed.data.room_number}\n🕒 ${when}\n💳 ${parsed.data.payment_method === "cash" ? "Cash" : "Interac e-Transfer"}\n💰 $${Number(order.total).toFixed(2)} CAD`;
+      const itemLines = (orderItems ?? []).map((item) => {
+        const extras = Array.isArray(item.extras)
+          ? item.extras.filter(
+              (extra): extra is string => typeof extra === "string",
+            )
+          : [];
+        const extrasText = extras.length
+          ? `\n   + ${extras.join(", ")}`
+          : "";
+        return `• ${item.quantity}× ${item.title_snapshot}${extrasText}`;
+      });
+      const text = `🔔 New order #${order.order_number}\n👤 ${parsed.data.customer_name} · Room ${parsed.data.room_number}\n\n🍽️ Order\n${itemLines.join("\n")}\n\n🕒 ${when}\n💳 ${parsed.data.payment_method === "cash" ? "Cash" : "Interac e-Transfer"}\n💰 $${Number(order.total).toFixed(2)} CAD`;
       await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
         headers: { "content-type": "application/json" },
