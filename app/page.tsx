@@ -12,6 +12,7 @@ import {
   Settings2,
   ShoppingBag,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,7 @@ export type MenuItem = {
   price: number;
   time: number;
   stock: number;
+  weight_grams?: number | null;
   pos: string;
   tag: string;
   image_url?: string | null;
@@ -307,6 +309,7 @@ export default function Home() {
                       </p>
                       <p className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-[#6d7893]">
                         <Clock3 className="size-3.5" /> {item.time} min
+                        {item.weight_grams ? ` · ${item.weight_grams} g` : ""}
                       </p>
                     </div>
                     {cart[item.id] ? (
@@ -686,15 +689,21 @@ function Checkout({
 export function AdminPanel({
   items,
   onProductAdded,
+  onProductUpdated,
+  onProductDeleted,
   onBack,
 }: {
   items: MenuItem[];
   onProductAdded: (item: MenuItem) => void;
+  onProductUpdated: (item: MenuItem) => void;
+  onProductDeleted: (id: string) => void;
   onBack: () => void;
 }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [editMessage, setEditMessage] = useState("");
   const [orders, setOrders] = useState<
     Array<{
       id: string;
@@ -767,6 +776,9 @@ export function AdminPanel({
           description: String(form.get("description")),
           price: Number(form.get("price")),
           stock: Number(form.get("stock")),
+          weight_grams: form.get("weight_grams")
+            ? Number(form.get("weight_grams"))
+            : null,
           delivery_minutes: Number(form.get("delivery_minutes")),
           category: String(form.get("category") || "Pizzas"),
           extras,
@@ -794,6 +806,84 @@ export function AdminPanel({
       headers: { authorization: `Bearer ${data.session.access_token}` },
     });
     if (response.ok) setOrders(await response.json());
+  }
+  async function updateProduct(form: FormData) {
+    if (!editingItem) return;
+    setEditMessage("Saving...");
+    try {
+      const supabase = createSupabaseClient();
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) throw new Error("Your session has expired.");
+      let imageUrl = editingItem.image_url || null;
+      const image = form.get("image");
+      if (image instanceof File && image.size) {
+        const upload = new FormData();
+        upload.append("file", image);
+        const uploadResponse = await fetch("/api/uploads", {
+          method: "POST",
+          headers: { authorization: `Bearer ${data.session.access_token}` },
+          body: upload,
+        });
+        const uploadData = (await uploadResponse.json()) as { url?: string };
+        if (!uploadResponse.ok || !uploadData.url)
+          throw new Error("The image could not be uploaded.");
+        imageUrl = uploadData.url;
+      }
+      const extras = String(form.get("extras") || "")
+        .split("\n")
+        .map((line) => {
+          const [name, price] = line.split("|");
+          return { name: name?.trim(), price: Number(price) };
+        })
+        .filter((extra) => extra.name && Number.isFinite(extra.price));
+      const response = await fetch("/api/products", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${data.session.access_token}`,
+        },
+        body: JSON.stringify({
+          id: editingItem.id,
+          title: String(form.get("title")),
+          description: String(form.get("description")),
+          price: Number(form.get("price")),
+          stock: Number(form.get("stock")),
+          weight_grams: form.get("weight_grams")
+            ? Number(form.get("weight_grams"))
+            : null,
+          delivery_minutes: Number(form.get("delivery_minutes")),
+          category: String(form.get("category") || "Pizzas"),
+          extras,
+          image_url: imageUrl,
+        }),
+      });
+      const product = (await response.json()) as Record<string, unknown>;
+      if (!response.ok)
+        throw new Error(String(product.error || "The item could not be saved."));
+      onProductUpdated({
+        ...(product as unknown as MenuItem),
+        price: Number(product.price),
+        time: Number(product.delivery_minutes),
+        pos: editingItem.pos,
+        tag: String(product.category || "Available"),
+      });
+      setEditingItem(null);
+    } catch (error) {
+      setEditMessage(
+        error instanceof Error ? error.message : "The item could not be saved.",
+      );
+    }
+  }
+  async function deleteProduct(item: MenuItem) {
+    if (!confirm(`Remove ${item.title} from the menu?`)) return;
+    const { data } = await createSupabaseClient().auth.getSession();
+    if (!data.session) return;
+    const response = await fetch(`/api/products?id=${item.id}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${data.session.access_token}` },
+    });
+    if (response.ok) onProductDeleted(item.id);
+    else alert("The item could not be removed. Please try again.");
   }
   async function deleteOrder(id: string) {
     if (!confirm("Delete this sale permanently?")) return;
@@ -941,7 +1031,7 @@ export function AdminPanel({
                     placeholder="Ingredients and details"
                   />
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div className="space-y-2">
                     <Label>Price (CAD)</Label>
                     <Input
@@ -959,6 +1049,15 @@ export function AdminPanel({
                       name="stock"
                       type="number"
                       placeholder="10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Weight (g)</Label>
+                    <Input
+                      name="weight_grams"
+                      type="number"
+                      min="1"
+                      placeholder="450"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1146,18 +1245,105 @@ export function AdminPanel({
                   <b>{item.title}</b>
                   <p className="text-sm text-[#6d7893]">
                     ${item.price.toFixed(2)} · {item.time} min
+                    {item.weight_grams ? ` · ${item.weight_grams} g` : ""}
                   </p>
                 </div>
                 <div className="text-right">
                   <b>{item.stock} units</b>
                   <p className="text-xs text-[#6d7893]">in stock</p>
                 </div>
-                <Button variant="outline" size="sm" className="rounded-full">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setEditMessage("");
+                    setEditingItem(item);
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                >
                   Edit
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => deleteProduct(item)}
+                  variant="outline"
+                  size="icon-sm"
+                  className="rounded-full text-red-600"
+                  aria-label={`Delete ${item.title}`}
+                >
+                  <Trash2 />
                 </Button>
               </div>
             ))}
           </div>
+          <Dialog
+            open={Boolean(editingItem)}
+            onOpenChange={(open) => !open && setEditingItem(null)}
+          >
+            <DialogContent className="max-h-[92vh] overflow-auto rounded-[28px]">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-black">
+                  Edit menu item
+                </DialogTitle>
+              </DialogHeader>
+              {editingItem && (
+                <form action={updateProduct} className="grid gap-4 pt-2">
+                  <label className="grid h-28 cursor-pointer place-items-center rounded-2xl border-2 border-dashed border-[#cfd7e8] bg-[#f7f9fd] text-center text-sm text-[#6d7893]">
+                    <span>Replace product photo (optional)</span>
+                    <input name="image" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" />
+                  </label>
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input required name="title" defaultValue={editingItem.title} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Input required name="description" defaultValue={editingItem.description} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="space-y-2">
+                      <Label>Price (CAD)</Label>
+                      <Input required name="price" type="number" step="0.01" defaultValue={editingItem.price} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Stock</Label>
+                      <Input required name="stock" type="number" defaultValue={editingItem.stock} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Weight (g)</Label>
+                      <Input name="weight_grams" type="number" min="1" defaultValue={editingItem.weight_grams || ""} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Prep time</Label>
+                      <Input required name="delivery_minutes" type="number" defaultValue={editingItem.time} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <select name="category" defaultValue={editingItem.category || editingItem.tag} className="h-11 w-full rounded-xl border bg-white px-3">
+                      <option>Pizzas</option>
+                      <option>Snacks</option>
+                      <option>Sides</option>
+                      <option>Drinks</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Extras and prices</Label>
+                    <textarea
+                      name="extras"
+                      className="min-h-24 w-full rounded-xl border p-3 text-sm"
+                      defaultValue={(editingItem.extras || []).map((extra) => `${extra.name}|${extra.price.toFixed(2)}`).join("\n")}
+                    />
+                  </div>
+                  {editMessage && <p className="text-sm font-bold text-red-600">{editMessage}</p>}
+                  <Button type="submit" className="h-12 rounded-2xl bg-[#2457ff] font-bold">
+                    Save changes
+                  </Button>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
         <TabsContent value="settings">
           <div className="rounded-[26px] border bg-white p-7">
