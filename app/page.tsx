@@ -702,8 +702,10 @@ export function AdminPanel({
   const [authenticated, setAuthenticated] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
+  const [createImagePreview, setCreateImagePreview] = useState("");
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [editMessage, setEditMessage] = useState("");
+  const [editImagePreview, setEditImagePreview] = useState("");
   const [orders, setOrders] = useState<
     Array<{
       id: string;
@@ -754,8 +756,12 @@ export function AdminPanel({
           headers: { authorization: `Bearer ${data.session.access_token}` },
           body: upload,
         });
-        const uploadData = (await uploadResponse.json()) as { url?: string };
-        if (!uploadResponse.ok || !uploadData.url) throw new Error();
+        const uploadData = (await uploadResponse.json()) as {
+          url?: string;
+          error?: string;
+        };
+        if (!uploadResponse.ok || !uploadData.url)
+          throw new Error(uploadData.error || "The image could not be uploaded.");
         imageUrl = uploadData.url;
       }
       const extras = String(form.get("extras") || "")
@@ -795,8 +801,11 @@ export function AdminPanel({
         tag: String(product.category || "Available"),
       });
       setSaveMessage("Item published to the menu.");
-    } catch {
-      setSaveMessage("We could not save this item.");
+      setCreateImagePreview("");
+    } catch (error) {
+      setSaveMessage(
+        error instanceof Error ? error.message : "We could not save this item.",
+      );
     }
   }
   async function loadOrders() {
@@ -824,9 +833,12 @@ export function AdminPanel({
           headers: { authorization: `Bearer ${data.session.access_token}` },
           body: upload,
         });
-        const uploadData = (await uploadResponse.json()) as { url?: string };
+        const uploadData = (await uploadResponse.json()) as {
+          url?: string;
+          error?: string;
+        };
         if (!uploadResponse.ok || !uploadData.url)
-          throw new Error("The image could not be uploaded.");
+          throw new Error(uploadData.error || "The image could not be uploaded.");
         imageUrl = uploadData.url;
       }
       const extras = String(form.get("extras") || "")
@@ -867,6 +879,7 @@ export function AdminPanel({
         pos: editingItem.pos,
         tag: String(product.category || "Available"),
       });
+      setEditImagePreview("");
       setEditingItem(null);
     } catch (error) {
       setEditMessage(
@@ -1001,18 +1014,44 @@ export function AdminPanel({
                 </DialogTitle>
               </DialogHeader>
               <form action={saveProduct} className="grid gap-4 pt-2">
-                <label className="grid h-32 cursor-pointer place-items-center rounded-2xl border-2 border-dashed border-[#cfd7e8] bg-[#f7f9fd] text-center text-sm text-[#6d7893]">
-                  <div>
-                    <ImagePlus className="mx-auto mb-2" />
-                    Add product photo
-                    <br />
-                    <small>JPG, PNG, or WebP · max 5 MB</small>
-                  </div>
+                <label className="relative grid h-40 cursor-pointer place-items-center overflow-hidden rounded-2xl border-2 border-dashed border-[#cfd7e8] bg-[#f7f9fd] text-center text-sm text-[#6d7893]">
+                  {createImagePreview ? (
+                    <>
+                      <img
+                        src={createImagePreview}
+                        alt="Selected product preview"
+                        className="absolute inset-0 size-full object-cover"
+                      />
+                      <span className="absolute bottom-3 rounded-full bg-[#172039]/85 px-4 py-2 font-bold text-white">
+                        Photo selected · click to replace
+                      </span>
+                    </>
+                  ) : (
+                    <div>
+                      <ImagePlus className="mx-auto mb-2" />
+                      Add product photo
+                      <br />
+                      <small>JPG, PNG, or WebP · max 5 MB</small>
+                    </div>
+                  )}
                   <input
                     name="image"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) {
+                        setSaveMessage("Choose an image up to 5 MB.");
+                        event.target.value = "";
+                        return;
+                      }
+                      if (createImagePreview.startsWith("blob:"))
+                        URL.revokeObjectURL(createImagePreview);
+                      setCreateImagePreview(URL.createObjectURL(file));
+                      setSaveMessage("Photo selected and ready to upload.");
+                    }}
                   />
                 </label>
                 <div className="space-y-2">
@@ -1256,6 +1295,7 @@ export function AdminPanel({
                   type="button"
                   onClick={() => {
                     setEditMessage("");
+                    setEditImagePreview("");
                     setEditingItem(item);
                   }}
                   variant="outline"
@@ -1289,9 +1329,42 @@ export function AdminPanel({
               </DialogHeader>
               {editingItem && (
                 <form action={updateProduct} className="grid gap-4 pt-2">
-                  <label className="grid h-28 cursor-pointer place-items-center rounded-2xl border-2 border-dashed border-[#cfd7e8] bg-[#f7f9fd] text-center text-sm text-[#6d7893]">
-                    <span>Replace product photo (optional)</span>
-                    <input name="image" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" />
+                  <label className="relative grid h-40 cursor-pointer place-items-center overflow-hidden rounded-2xl border-2 border-dashed border-[#cfd7e8] bg-[#f7f9fd] text-center text-sm text-[#6d7893]">
+                    {editImagePreview || editingItem.image_url ? (
+                      <>
+                        <img
+                          src={editImagePreview || editingItem.image_url || ""}
+                          alt="Product photo preview"
+                          className="absolute inset-0 size-full object-cover"
+                        />
+                        <span className="absolute bottom-3 rounded-full bg-[#172039]/85 px-4 py-2 font-bold text-white">
+                          {editImagePreview
+                            ? "New photo selected · click to replace"
+                            : "Click to replace photo"}
+                        </span>
+                      </>
+                    ) : (
+                      <span>Choose a product photo</span>
+                    )}
+                    <input
+                      name="image"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 5 * 1024 * 1024) {
+                          setEditMessage("Choose an image up to 5 MB.");
+                          event.target.value = "";
+                          return;
+                        }
+                        if (editImagePreview.startsWith("blob:"))
+                          URL.revokeObjectURL(editImagePreview);
+                        setEditImagePreview(URL.createObjectURL(file));
+                        setEditMessage("New photo selected and ready to upload.");
+                      }}
+                    />
                   </label>
                   <div className="space-y-2">
                     <Label>Title</Label>
