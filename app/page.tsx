@@ -233,7 +233,11 @@ export default function Home() {
               <Clock3 className="size-6" />
             </div>
             <div>
-              <p className="text-6xl font-black tracking-[-.07em]">15–30</p>
+              <p className="flex items-baseline gap-3 text-6xl font-black tracking-[-.04em]">
+                <span>15</span>
+                <span aria-hidden="true">–</span>
+                <span>30</span>
+              </p>
               <p className="mt-1 text-lg font-bold">minutes to your door</p>
             </div>
           </div>
