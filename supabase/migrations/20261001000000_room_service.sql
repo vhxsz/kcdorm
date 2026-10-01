@@ -12,6 +12,7 @@ create table public.products (
   description text not null default '' check (char_length(description) <= 500),
   price numeric(10,2) not null check (price > 0),
   stock integer not null default 0 check (stock >= 0),
+  weight_grams integer check (weight_grams is null or weight_grams > 0),
   delivery_minutes integer not null check (delivery_minutes between 1 and 240),
   image_url text,
   category text not null default 'Pizzas',
