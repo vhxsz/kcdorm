@@ -29,6 +29,14 @@ export default function AdminPage() {
       <AdminPanel
         items={items}
         onProductAdded={(item) => setItems((current) => [...current, item])}
+        onProductUpdated={(item) =>
+          setItems((current) =>
+            current.map((existing) => (existing.id === item.id ? item : existing)),
+          )
+        }
+        onProductDeleted={(id) =>
+          setItems((current) => current.filter((item) => item.id !== id))
+        }
         onBack={() => window.location.assign("/")}
       />
     </main>
