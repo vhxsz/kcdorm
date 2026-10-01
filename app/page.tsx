@@ -8,6 +8,7 @@ import {
   ImagePlus,
   Minus,
   Package,
+  Pizza,
   Plus,
   Settings2,
   ShoppingBag,
@@ -49,6 +50,33 @@ export type MenuItem = {
   category?: string;
   extras?: { name: string; price: number }[];
 };
+
+const demoProductImages: Record<string, string> = {
+  "d0000000-0000-4000-8000-000000000001": "https://images.unsplash.com/photo-1579751626657-72bc17010498?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000002": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000003": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000004": "https://images.unsplash.com/photo-1571407970349-bc81e7e96d47?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000005": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000006": "https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000007": "https://images.unsplash.com/photo-1548340748-6d2b7d7da280?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000008": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000009": "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000010": "https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000011": "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000012": "https://images.unsplash.com/photo-1625944525533-473f1a3d54e7?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000013": "https://images.unsplash.com/photo-1546793665-c74683f339c1?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000014": "https://images.unsplash.com/photo-1639024471283-03518883512d?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000015": "https://images.unsplash.com/photo-1619535860434-ba1d8fa12536?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000016": "https://images.unsplash.com/photo-1554866585-cd94860890b7?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000017": "https://images.unsplash.com/photo-1629203851122-3726ecdf080e?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000018": "https://images.unsplash.com/photo-1527960471264-932f39eb5846?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000019": "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&w=900&q=80",
+  "d0000000-0000-4000-8000-000000000020": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=900&q=80",
+};
+
+function getProductImage(item: MenuItem) {
+  return item.image_url || demoProductImages[item.id] || "/menu-food.jpg";
+}
 const demoItems: MenuItem[] = [
   {
     id: "11111111-1111-4111-8111-111111111111",
@@ -171,17 +199,10 @@ export default function Home() {
       <header className="sticky top-0 z-40 border-b border-[#dfe5f1] bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
           <div className="flex items-center gap-3">
-            <div className="grid size-11 place-items-center rounded-2xl bg-[#2457ff] text-xl text-white shadow-[0_8px_24px_rgba(36,87,255,.25)]">
-              ◒
+            <div className="grid size-11 place-items-center rounded-2xl bg-[#2457ff] text-white shadow-[0_8px_24px_rgba(36,87,255,.25)]">
+              <Pizza className="size-6" />
             </div>
-            <div>
-              <div className="font-black tracking-[-.04em]">
-                PIZZA NEXT DOOR
-              </div>
-              <div className="text-xs font-medium text-[#6d7893]">
-                Toronto · open until 11 p.m.
-              </div>
-            </div>
+            <div className="font-black tracking-[-.04em]">PIZZA NEXT DOOR</div>
           </div>
           <div className="flex items-center gap-2">
             <Sheet>
@@ -283,7 +304,7 @@ export default function Home() {
               >
                 <div className="relative h-56 overflow-hidden">
                   <img
-                    src={item.image_url || "/menu-food.jpg"}
+                    src={getProductImage(item)}
                     alt={item.title}
                     className="h-full w-full scale-[1.35] object-cover transition duration-500 group-hover:scale-[1.42]"
                     style={{ objectPosition: item.pos }}
@@ -479,7 +500,7 @@ function Cart({
               <div key={item.id} className="flex gap-4">
                 <div className="size-20 overflow-hidden rounded-2xl">
                   <img
-                    src={item.image_url || "/menu-food.jpg"}
+                    src={getProductImage(item)}
                     alt=""
                     className="h-full w-full scale-[1.4] object-cover"
                     style={{ objectPosition: item.pos }}
@@ -1275,7 +1296,7 @@ export function AdminPanel({
                 className="flex items-center gap-4 border-b p-4 last:border-0"
               >
                 <img
-                  src={item.image_url || "/menu-food.jpg"}
+                  src={getProductImage(item)}
                   alt=""
                   className="size-16 rounded-xl object-cover"
                   style={{ objectPosition: item.pos }}
@@ -1330,10 +1351,10 @@ export function AdminPanel({
               {editingItem && (
                 <form action={updateProduct} className="grid gap-4 pt-2">
                   <label className="relative grid h-40 cursor-pointer place-items-center overflow-hidden rounded-2xl border-2 border-dashed border-[#cfd7e8] bg-[#f7f9fd] text-center text-sm text-[#6d7893]">
-                    {editImagePreview || editingItem.image_url ? (
+                    {editImagePreview || getProductImage(editingItem) ? (
                       <>
                         <img
-                          src={editImagePreview || editingItem.image_url || ""}
+                          src={editImagePreview || getProductImage(editingItem)}
                           alt="Product photo preview"
                           className="absolute inset-0 size-full object-cover"
                         />
