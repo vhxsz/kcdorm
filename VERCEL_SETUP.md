@@ -2,7 +2,7 @@
 
 1. Run `supabase/migrations/20261001000000_room_service.sql` in the Supabase SQL Editor.
 2. Create the administrator's email and password under Authentication > Users.
-3. Run `supabase/set-admin-email.sql` to make `luccagrings70@gmail.com` an administrator.
+3. Run `supabase/set-admin-email.sql` to make `vitorheniqueamaral@gmail.com` an administrator.
 4. Add the five variables listed in `.env.example` to Vercel.
 5. Deploy using the **Next.js** framework preset.
 
