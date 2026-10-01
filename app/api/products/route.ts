@@ -7,6 +7,7 @@ const productSchema = z.object({
   description: z.string().max(500),
   price: z.number().positive().max(10000),
   stock: z.number().int().min(0).max(10000),
+  weight_grams: z.number().int().positive().max(100000).optional().nullable(),
   delivery_minutes: z.number().int().min(1).max(240),
   image_url: z.string().url().optional().nullable(),
   category: z.string().min(2).max(50).default("Pizzas"),
@@ -20,7 +21,7 @@ export async function GET() {
     const { data, error } = await createAdminClient()
       .from("products")
       .select(
-        "id,title,description,price,stock,delivery_minutes,image_url,category,extras",
+        "id,title,description,price,stock,weight_grams,delivery_minutes,image_url,category,extras",
       )
       .eq("active", true)
       .order("created_at");
@@ -53,4 +54,44 @@ export async function POST(request: Request) {
   return error
     ? NextResponse.json({ error: error.message }, { status: 500 })
     : NextResponse.json(data, { status: 201 });
+}
+
+export async function PATCH(request: Request) {
+  if (!(await requireAdmin(request)))
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const parsed = productSchema
+    .extend({ id: z.string().uuid() })
+    .safeParse(await request.json());
+  if (!parsed.success)
+    return NextResponse.json(
+      { error: "Invalid product details", issues: parsed.error.flatten() },
+      { status: 400 },
+    );
+  const { id, ...product } = parsed.data;
+  const { data, error } = await createAdminClient()
+    .from("products")
+    .update(product)
+    .eq("id", id)
+    .select()
+    .single();
+  return error
+    ? NextResponse.json({ error: error.message }, { status: 500 })
+    : NextResponse.json(data);
+}
+
+export async function DELETE(request: Request) {
+  if (!(await requireAdmin(request)))
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const id = new URL(request.url).searchParams.get("id");
+  if (!id || !z.string().uuid().safeParse(id).success)
+    return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
+
+  // Soft deletion preserves references used by previous sales.
+  const { error } = await createAdminClient()
+    .from("products")
+    .update({ active: false })
+    .eq("id", id);
+  return error
+    ? NextResponse.json({ error: error.message }, { status: 500 })
+    : new NextResponse(null, { status: 204 });
 }
