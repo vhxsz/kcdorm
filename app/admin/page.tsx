@@ -11,13 +11,15 @@ export default function AdminPage() {
       .then((response) => (response.ok ? response.json() : []))
       .then((products: unknown) =>
         setItems(
-          (Array.isArray(products) ? products : []).map((product: Record<string, unknown>, index: number) => ({
-            ...(product as unknown as MenuItem),
-            price: Number(product.price),
-            time: Number(product.delivery_minutes),
-            pos: ["20% 22%", "72% 78%", "84% 18%"][index % 3],
-            tag: String(product.category || "Disponível"),
-          })),
+          (Array.isArray(products) ? products : []).map(
+            (product: Record<string, unknown>, index: number) => ({
+              ...(product as unknown as MenuItem),
+              price: Number(product.price),
+              time: Number(product.delivery_minutes),
+              pos: ["20% 22%", "72% 78%", "84% 18%"][index % 3],
+              tag: String(product.category || "Available"),
+            }),
+          ),
         ),
       );
   }, []);

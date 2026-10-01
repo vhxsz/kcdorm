@@ -50,40 +50,39 @@ const demoItems: MenuItem[] = [
   {
     id: "11111111-1111-4111-8111-111111111111",
     title: "Pepperoni Hot Honey",
-    description:
-      "Molho de tomate, mozzarella, pepperoni crocante e mel picante.",
+    description: "Tomato sauce, mozzarella, crispy pepperoni, and hot honey.",
     price: 19,
     time: 25,
     stock: 8,
     pos: "20% 22%",
-    tag: "Mais pedida",
+    tag: "Most popular",
   },
   {
     id: "22222222-2222-4222-8222-222222222222",
     title: "Burrata Garden",
-    description: "Burrata cremosa, tomate cereja, pesto e manjericão fresco.",
+    description: "Creamy burrata, cherry tomatoes, pesto, and fresh basil.",
     price: 22,
     time: 30,
     stock: 5,
     pos: "72% 78%",
-    tag: "Nova",
+    tag: "New",
   },
   {
     id: "33333333-3333-4333-8333-333333333333",
     title: "Truffle Parm Fries",
-    description: "Batatas crocantes, parmesão, ervas e maionese trufada.",
+    description: "Crispy fries, Parmesan, herbs, and truffle mayo.",
     price: 11,
     time: 15,
     stock: 12,
     pos: "84% 18%",
-    tag: "Para dividir",
+    tag: "Great for sharing",
   },
 ];
 
 export default function Home() {
   const [items, setItems] = useState<MenuItem[]>(demoItems);
   const [cart, setCart] = useState<Record<string, number>>({});
-  const [category, setCategory] = useState("Todos");
+  const [category, setCategory] = useState("All");
   const count = Object.values(cart).reduce((a, b) => a + b, 0);
   const total = useMemo(
     () =>
@@ -114,9 +113,8 @@ export default function Home() {
       context.registerTool(
         {
           name: "add_menu_item_to_cart",
-          title: "Adicionar item ao carrinho",
-          description:
-            "Adiciona uma unidade de um produto disponível ao carrinho visível.",
+          title: "Add menu item to cart",
+          description: "Adds one available menu item to the visible cart.",
           inputSchema: {
             type: "object",
             properties: {
@@ -129,7 +127,7 @@ export default function Home() {
           execute(input: unknown) {
             const id = String((input as { itemId?: string })?.itemId || "");
             const item = items.find((candidate) => candidate.id === id);
-            if (!item) throw new Error("Item inválido");
+            if (!item) throw new Error("Invalid item");
             add(id);
             return { itemId: id, title: item.title, status: "added" };
           },
@@ -150,7 +148,7 @@ export default function Home() {
               price: Number(p.price),
               time: p.delivery_minutes,
               pos: ["20% 22%", "72% 78%", "84% 18%"][i % 3],
-              tag: p.category || "Disponível",
+              tag: p.category || "Available",
             })),
           );
       })
@@ -166,9 +164,11 @@ export default function Home() {
               ◒
             </div>
             <div>
-              <div className="font-black tracking-[-.04em]">ROOM SERVICE</div>
+              <div className="font-black tracking-[-.04em]">
+                PIZZA NEXT DOOR
+              </div>
               <div className="text-xs font-medium text-[#6d7893]">
-                Toronto · aberto até 23h
+                Toronto · open until 11 p.m.
               </div>
             </div>
           </div>
@@ -176,7 +176,7 @@ export default function Home() {
             <Sheet>
               <SheetTrigger asChild>
                 <Button className="h-11 rounded-full bg-[#172039] px-5 text-white hover:bg-[#2457ff]">
-                  <ShoppingBag className="size-4" /> Carrinho{" "}
+                  <ShoppingBag className="size-4" /> Cart{" "}
                   <span className="rounded-full bg-white/15 px-2 py-0.5">
                     {count}
                   </span>
@@ -201,15 +201,16 @@ export default function Home() {
           <div className="relative overflow-hidden rounded-[32px] bg-[#2457ff] p-7 text-white shadow-[0_20px_70px_rgba(36,87,255,.18)] md:p-10">
             <div className="relative z-10 max-w-xl">
               <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1.5 text-sm font-semibold">
-                <Sparkles className="size-4" /> Direto no seu quarto
+                <Sparkles className="size-4" /> Delivered to your room
               </div>
               <h1 className="text-4xl font-black leading-[.95] tracking-[-.06em] md:text-6xl">
-                Fome agora?
-                <br />A gente sobe.
+                Hungry now?
+                <br />
+                We’re next door.
               </h1>
               <p className="mt-5 max-w-md text-base leading-relaxed text-blue-100">
-                Escolha, agende e receba sem sair do conforto. Pedido mínimo não
-                existe por aqui.
+                Choose your favourites, pick a time, and relax. There’s no
+                minimum order.
               </p>
             </div>
             <div className="absolute -bottom-24 -right-16 size-72 rounded-full border-[48px] border-[#ffdf57] opacity-90" />
@@ -217,13 +218,13 @@ export default function Home() {
           <div className="flex min-h-56 flex-col justify-between rounded-[32px] bg-[#ffdf57] p-7 md:p-8">
             <div className="flex items-start justify-between">
               <span className="text-sm font-bold uppercase tracking-widest">
-                Entrega rápida
+                Quick delivery
               </span>
               <Clock3 className="size-6" />
             </div>
             <div>
               <p className="text-6xl font-black tracking-[-.07em]">15–30</p>
-              <p className="mt-1 text-lg font-bold">minutos até sua porta</p>
+              <p className="mt-1 text-lg font-bold">minutes to your door</p>
             </div>
           </div>
         </div>
@@ -231,18 +232,18 @@ export default function Home() {
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="text-sm font-bold uppercase tracking-[.16em] text-[#2457ff]">
-              Feito agora
+              Fresh from the oven
             </p>
             <h2 className="mt-1 text-3xl font-black tracking-[-.04em]">
-              O que vai pedir?
+              What are you craving?
             </h2>
           </div>
           <button className="hidden text-sm font-bold text-[#6d7893] md:block">
-            Ver informações de entrega
+            Delivery information
           </button>
         </div>
         <div className="mb-7 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {["Todos", "Pizzas", "Acompanhamentos", "Bebidas"].map((name) => (
+          {["All", "Pizzas", "Sides", "Drinks"].map((name) => (
             <button
               key={name}
               onClick={() => setCategory(name)}
@@ -260,7 +261,7 @@ export default function Home() {
             >
               <div className="relative h-56 overflow-hidden">
                 <img
-                  src={item.image_url || "/menu-food.png"}
+                  src={item.image_url || "/menu-food.jpg"}
                   alt={item.title}
                   className="h-full w-full scale-[1.35] object-cover transition duration-500 group-hover:scale-[1.42]"
                   style={{ objectPosition: item.pos }}
@@ -269,7 +270,7 @@ export default function Home() {
                   {item.tag}
                 </span>
                 <span className="absolute bottom-4 right-4 rounded-full bg-[#172039]/90 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
-                  {item.stock} disponíveis
+                  {item.stock} available
                 </span>
               </div>
               <div className="p-5">
@@ -292,7 +293,7 @@ export default function Home() {
                     <div className="flex items-center gap-3 rounded-full bg-[#edf1ff] p-1">
                       <button
                         onClick={() => remove(item.id)}
-                        aria-label={`Remover ${item.title}`}
+                        aria-label={`Remove ${item.title}`}
                         className="grid size-9 place-items-center rounded-full bg-white"
                       >
                         <Minus className="size-4" />
@@ -300,7 +301,7 @@ export default function Home() {
                       <b>{cart[item.id]}</b>
                       <button
                         onClick={() => add(item.id)}
-                        aria-label={`Adicionar ${item.title}`}
+                        aria-label={`Add ${item.title}`}
                         className="grid size-9 place-items-center rounded-full bg-[#2457ff] text-white"
                       >
                         <Plus className="size-4" />
@@ -310,7 +311,7 @@ export default function Home() {
                     <Button
                       onClick={() => add(item.id)}
                       className="size-11 rounded-full bg-[#2457ff] p-0 hover:bg-[#1744d4]"
-                      aria-label={`Adicionar ${item.title}`}
+                      aria-label={`Add ${item.title}`}
                     >
                       <Plus className="size-5" />
                     </Button>
@@ -324,7 +325,7 @@ export default function Home() {
       {count > 0 && (
         <div className="fixed bottom-5 left-1/2 z-30 flex w-[calc(100%-40px)] max-w-md -translate-x-1/2 items-center justify-between rounded-2xl bg-[#172039] px-5 py-4 text-white shadow-2xl md:hidden">
           <span className="font-bold">
-            Carrinho · {count} {count === 1 ? "item" : "itens"}
+            Cart · {count} {count === 1 ? "item" : "items"}
           </span>
           <b>${total.toFixed(2)}</b>
         </div>
@@ -350,7 +351,7 @@ function Cart({
     <div className="flex h-full flex-col bg-white">
       <SheetHeader className="border-b border-[#e4e9f2] p-6">
         <SheetTitle className="text-2xl font-black tracking-tight">
-          Seu pedido
+          Your order
         </SheetTitle>
       </SheetHeader>
       <div className="flex-1 space-y-5 overflow-auto p-6">
@@ -360,9 +361,9 @@ function Cart({
               <div className="mx-auto mb-4 grid size-16 place-items-center rounded-full bg-[#edf1ff]">
                 <ShoppingBag className="text-[#2457ff]" />
               </div>
-              <p className="font-bold">Seu carrinho está vazio</p>
+              <p className="font-bold">Your cart is empty</p>
               <p className="mt-1 text-sm text-[#6d7893]">
-                Adicione algo gostoso do cardápio.
+                Add something delicious from the menu.
               </p>
             </div>
           </div>
@@ -451,7 +452,7 @@ function Checkout({
       order_number?: string | number;
     };
     if (!response.ok) {
-      setError(data.error || "Erro ao enviar pedido");
+      setError(data.error || "Could not place your order");
       return;
     }
     setOrderNumber(String(data.order_number));
@@ -461,7 +462,7 @@ function Checkout({
     <Dialog>
       <DialogTrigger asChild>
         <Button className="h-13 w-full rounded-2xl bg-[#2457ff] text-base font-bold hover:bg-[#1744d4]">
-          Continuar pedido
+          Continue to checkout
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[92vh] overflow-auto rounded-[28px] sm:max-w-lg">
@@ -471,15 +472,15 @@ function Checkout({
               ✓
             </div>
             <DialogTitle className="text-3xl font-black">
-              Pedido recebido!
+              Order received!
             </DialogTitle>
             <p className="mt-3 text-[#6d7893]">
-              A cozinha já foi avisada no Telegram.
+              The kitchen has been notified on Telegram.
               <br />
-              Você receberá no horário escolhido.
+              Your order will arrive at the selected time.
             </p>
             <div className="mx-auto mt-6 max-w-xs rounded-2xl bg-[#f3f6fb] p-4">
-              <span className="text-sm text-[#6d7893]">Número do pedido</span>
+              <span className="text-sm text-[#6d7893]">Order number</span>
               <p className="text-2xl font-black">#{orderNumber}</p>
             </div>
           </div>
@@ -487,31 +488,41 @@ function Checkout({
           <form action={submit}>
             <DialogHeader>
               <DialogTitle className="text-2xl font-black">
-                Finalizar pedido
+                Complete your order
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-5 pt-2">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Seu nome</Label>
-                  <Input required name="name" id="name" placeholder="Ex. Ana" />
+                  <Label htmlFor="name">Your name</Label>
+                  <Input
+                    required
+                    name="name"
+                    id="name"
+                    placeholder="e.g. Alex"
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="room">Número do quarto</Label>
-                  <Input required name="room" id="room" placeholder="Ex. 407" />
+                  <Label htmlFor="room">Room number</Label>
+                  <Input
+                    required
+                    name="room"
+                    id="room"
+                    placeholder="e.g. 407"
+                  />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="time">Quando deseja receber?</Label>
+                <Label htmlFor="time">When would you like it?</Label>
                 <select
                   id="time"
                   className="h-11 w-full rounded-xl border border-[#dfe5f1] bg-white px-3 text-sm"
                 >
-                  <option>O mais rápido possível · 25 min</option>
+                  <option>As soon as possible · 25 min</option>
                 </select>
               </div>
               <div className="space-y-3">
-                <Label>Forma de pagamento</Label>
+                <Label>Payment method</Label>
                 <RadioGroup
                   name="payment"
                   defaultValue="etransfer"
@@ -522,14 +533,14 @@ function Checkout({
                     className="flex cursor-pointer items-center gap-3 rounded-2xl border p-4"
                   >
                     <RadioGroupItem id="etransfer" value="etransfer" />
-                    <b>e-Transfer</b>
+                    <b>Interac e-Transfer</b>
                   </Label>
                   <Label
                     htmlFor="cash"
                     className="flex cursor-pointer items-center gap-3 rounded-2xl border p-4"
                   >
                     <RadioGroupItem id="cash" value="cash" />
-                    <b>Dinheiro</b>
+                    <b>Cash</b>
                   </Label>
                 </RadioGroup>
               </div>
@@ -544,7 +555,7 @@ function Checkout({
                 type="submit"
                 className="h-13 rounded-2xl bg-[#2457ff] text-base font-bold"
               >
-                Fazer pedido
+                Place order
               </Button>
             </div>
           </form>
@@ -583,7 +594,7 @@ export function AdminPanel({
       if (error) throw error;
       setAuthenticated(true);
     } catch {
-      setLoginError("E-mail ou senha inválidos");
+      setLoginError("Invalid email or password");
     }
   }
   async function saveProduct(form: FormData) {
@@ -616,11 +627,11 @@ export function AdminPanel({
         price: Number(product.price),
         time: Number(product.delivery_minutes),
         pos: "50% 50%",
-        tag: String(product.category || "Disponível"),
+        tag: String(product.category || "Available"),
       });
-      setSaveMessage("Item publicado no cardápio.");
+      setSaveMessage("Item published to the menu.");
     } catch {
-      setSaveMessage("Não foi possível salvar o item.");
+      setSaveMessage("We could not save this item.");
     }
   }
   if (!authenticated)
@@ -633,15 +644,13 @@ export function AdminPanel({
           <div className="mb-6 grid size-14 place-items-center rounded-2xl bg-[#2457ff] text-white">
             <Settings2 />
           </div>
-          <h1 className="text-3xl font-black tracking-tight">
-            Acesso administrativo
-          </h1>
+          <h1 className="text-3xl font-black tracking-tight">Admin sign-in</h1>
           <p className="mt-2 text-sm text-[#6d7893]">
-            Entre com o usuário criado no Supabase.
+            Sign in with the administrator account created in Supabase.
           </p>
           <div className="mt-6 space-y-4">
             <div className="space-y-2">
-              <Label>E-mail</Label>
+              <Label>Email</Label>
               <Input
                 required
                 name="email"
@@ -650,7 +659,7 @@ export function AdminPanel({
               />
             </div>
             <div className="space-y-2">
-              <Label>Senha</Label>
+              <Label>Password</Label>
               <Input
                 required
                 name="password"
@@ -665,7 +674,7 @@ export function AdminPanel({
               type="submit"
               className="h-12 w-full rounded-xl bg-[#2457ff] font-bold"
             >
-              Entrar
+              Sign in
             </Button>
             <Button
               type="button"
@@ -673,7 +682,7 @@ export function AdminPanel({
               variant="ghost"
               className="w-full"
             >
-              Voltar ao cardápio
+              Back to menu
             </Button>
           </div>
         </form>
@@ -684,10 +693,10 @@ export function AdminPanel({
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-bold uppercase tracking-[.16em] text-[#2457ff]">
-            Painel administrativo
+            Admin dashboard
           </p>
           <h1 className="mt-1 text-4xl font-black tracking-[-.05em]">
-            Operação de hoje
+            Today’s operations
           </h1>
         </div>
         <div className="flex gap-2">
@@ -696,7 +705,7 @@ export function AdminPanel({
             variant="outline"
             className="rounded-full sm:hidden"
           >
-            Cardápio
+            Menu
           </Button>
           <Dialog>
             <DialogTrigger asChild>
@@ -707,35 +716,35 @@ export function AdminPanel({
             <DialogContent className="max-h-[92vh] overflow-auto rounded-[28px]">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black">
-                  Adicionar ao cardápio
+                  Add a menu item
                 </DialogTitle>
               </DialogHeader>
               <form action={saveProduct} className="grid gap-4 pt-2">
                 <div className="grid h-32 place-items-center rounded-2xl border-2 border-dashed border-[#cfd7e8] bg-[#f7f9fd] text-center text-sm text-[#6d7893]">
                   <div>
                     <ImagePlus className="mx-auto mb-2" />
-                    Adicionar foto do produto
+                    Add product photo
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Título</Label>
+                  <Label>Title</Label>
                   <Input
                     required
                     name="title"
-                    placeholder="Ex. Margherita especial"
+                    placeholder="e.g. Margherita Special"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Descrição</Label>
+                  <Label>Description</Label>
                   <Input
                     required
                     name="description"
-                    placeholder="Ingredientes e detalhes"
+                    placeholder="Ingredients and details"
                   />
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-2">
-                    <Label>Preço (CAD)</Label>
+                    <Label>Price (CAD)</Label>
                     <Input
                       required
                       name="price"
@@ -745,7 +754,7 @@ export function AdminPanel({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Estoque</Label>
+                    <Label>Stock</Label>
                     <Input
                       required
                       name="stock"
@@ -754,7 +763,7 @@ export function AdminPanel({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Preparo</Label>
+                    <Label>Prep time</Label>
                     <Input
                       required
                       name="delivery_minutes"
@@ -776,7 +785,7 @@ export function AdminPanel({
                   type="submit"
                   className="h-12 rounded-2xl bg-[#2457ff] font-bold"
                 >
-                  Publicar item
+                  Publish item
                 </Button>
               </form>
             </DialogContent>
@@ -786,33 +795,33 @@ export function AdminPanel({
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <Stat
           icon={<ShoppingBag />}
-          label="Pedidos hoje"
+          label="Orders today"
           value="18"
-          detail="4 em preparo"
+          detail="4 being prepared"
           color="bg-[#edf1ff] text-[#2457ff]"
         />
         <Stat
           icon={<BarChart3 />}
-          label="Vendas hoje"
+          label="Sales today"
           value="$428"
           detail="+12% vs. ontem"
           color="bg-[#fff6cd] text-[#8a6c00]"
         />
         <Stat
           icon={<Package />}
-          label="Estoque baixo"
-          value="2 itens"
-          detail="precisam de atenção"
+          label="Low stock"
+          value="2 items"
+          detail="need attention"
           color="bg-[#fff0f1] text-[#d73546]"
         />
       </div>
       <Tabs defaultValue="orders">
         <TabsList className="mb-5 rounded-full bg-[#e9edf5] p-1">
           <TabsTrigger value="orders" className="rounded-full px-5">
-            Pedidos
+            Orders
           </TabsTrigger>
           <TabsTrigger value="menu" className="rounded-full px-5">
-            Cardápio e estoque
+            Menu and stock
           </TabsTrigger>
           <TabsTrigger value="settings" className="rounded-full px-5">
             Telegram
@@ -824,18 +833,12 @@ export function AdminPanel({
               [
                 "#1048",
                 "Mariana · 407",
-                "2 itens · $41.00",
+                "2 items · $41.00",
                 "19:30",
-                "Agendado",
+                "Scheduled",
               ],
-              [
-                "#1047",
-                "Lucas · 212",
-                "1 item · $22.00",
-                "Agora",
-                "Em preparo",
-              ],
-              ["#1046", "Sophie · 815", "3 itens · $49.00", "Agora", "Pronto"],
+              ["#1047", "Lucas · 212", "1 item · $22.00", "Now", "Preparing"],
+              ["#1046", "Sophie · 815", "3 items · $49.00", "Now", "Ready"],
             ].map((o, i) => (
               <div
                 key={o[0]}
@@ -875,10 +878,10 @@ export function AdminPanel({
                 </div>
                 <div className="text-right">
                   <b>{item.stock} un.</b>
-                  <p className="text-xs text-[#6d7893]">em estoque</p>
+                  <p className="text-xs text-[#6d7893]">in stock</p>
                 </div>
                 <Button variant="outline" size="sm" className="rounded-full">
-                  Editar
+                  Edit
                 </Button>
               </div>
             ))}
@@ -889,14 +892,14 @@ export function AdminPanel({
             <div className="mb-5 grid size-14 place-items-center rounded-2xl bg-[#2aabee] text-white">
               <BellRing />
             </div>
-            <h3 className="text-2xl font-black">Notificações no Telegram</h3>
+            <h3 className="text-2xl font-black">Telegram notifications</h3>
             <p className="mt-2 max-w-xl text-[#6d7893]">
-              Conecte seu bot para receber um alerta com nome, quarto, itens,
-              pagamento e horário assim que um novo pedido chegar.
+              Connect your bot to receive the customer name, room, items,
+              payment method, and delivery time for every new order.
             </p>
             <div className="mt-5 grid max-w-xl gap-3 sm:grid-cols-[1fr_auto]">
-              <Input placeholder="Token do bot do Telegram" type="password" />
-              <Button className="rounded-xl bg-[#172039]">Conectar bot</Button>
+              <Input placeholder="Telegram bot token" type="password" />
+              <Button className="rounded-xl bg-[#172039]">Connect bot</Button>
             </div>
           </div>
         </TabsContent>

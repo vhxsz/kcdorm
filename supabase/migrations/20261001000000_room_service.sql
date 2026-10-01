@@ -71,7 +71,7 @@ declare new_order public.orders; line jsonb; product public.products; amount num
 begin
   for line in select * from jsonb_array_elements(payload->'items') loop
     select * into product from public.products where id = (line->>'product_id')::uuid and active = true for update;
-    if product.id is null or product.stock < (line->>'quantity')::integer then raise exception 'Item indisponível'; end if;
+    if product.id is null or product.stock < (line->>'quantity')::integer then raise exception 'Item unavailable'; end if;
     amount := amount + product.price * (line->>'quantity')::integer;
   end loop;
   insert into public.orders(customer_name,room_number,scheduled_for,payment_method,status,total)

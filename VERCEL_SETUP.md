@@ -1,11 +1,11 @@
-# Configuração para Vercel + Supabase
+# Vercel + Supabase setup
 
-1. No Supabase SQL Editor, execute `supabase/migrations/20261001000000_room_service.sql`.
-2. Em Authentication > Users, crie o usuário administrador com e-mail e senha.
-3. Para definir `vitorheniqueamaral@gmail.com` como administrador, execute `supabase/set-admin-email.sql`.
-4. Na Vercel, configure as cinco variáveis listadas em `.env.example`.
-5. Faça o deploy com o framework preset **Next.js**.
+1. Run `supabase/migrations/20261001000000_room_service.sql` in the Supabase SQL Editor.
+2. Create the administrator's email and password under Authentication > Users.
+3. Run `supabase/set-admin-email.sql` to make `vitorheniqueamaral@gmail.com` an administrator.
+4. Add the five variables listed in `.env.example` to Vercel.
+5. Deploy using the **Next.js** framework preset.
 
-O painel não aparece no cardápio público. Acesse diretamente `https://seu-dominio/admin`.
+The admin panel is not linked from the public menu. Open `https://your-domain/admin` directly.
 
-Use a chave pública/publishable no navegador e a secret key somente em `SUPABASE_SECRET_KEY`. Nunca prefixe a chave secreta com `NEXT_PUBLIC_`.
+Use the publishable key in the browser and the secret key only in `SUPABASE_SECRET_KEY`. Never prefix the secret key with `NEXT_PUBLIC_`.
