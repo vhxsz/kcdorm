@@ -30,7 +30,7 @@ export default function SignInPage() {
       if (!response.ok || !business.slug)
         throw new Error(business.error || "No business is linked to this account.");
 
-      window.location.assign(`/?business=${encodeURIComponent(business.slug)}`);
+      window.location.assign(`/${encodeURIComponent(business.slug)}`);
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "We could not sign you in.",

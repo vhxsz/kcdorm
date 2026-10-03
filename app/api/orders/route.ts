@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Business is required" }, { status: 400 });
     let businessQuery = supabase
       .from("businesses")
-      .select("id,name,telegram_bot_token,telegram_chat_id")
+      .select("id,name,slug,telegram_bot_token,telegram_chat_id")
       .eq("active", true);
     businessQuery = parsed.data.business_slug
       ? businessQuery.eq("slug", parsed.data.business_slug)
@@ -52,8 +52,18 @@ export async function POST(request: Request) {
       payload: { ...parsed.data, business_id: business.id },
     });
     if (error) throw error;
-    const token = business.telegram_bot_token,
-      chatId = business.telegram_chat_id;
+    // The principal business keeps using the Telegram credentials already
+    // configured in Vercel. Other businesses use their own saved credentials.
+    const token =
+        business.telegram_bot_token ||
+        (business.slug === "main"
+          ? process.env.TELEGRAM_BOT_TOKEN
+          : null),
+      chatId =
+        business.telegram_chat_id ||
+        (business.slug === "main"
+          ? process.env.TELEGRAM_CHAT_ID
+          : null);
     if (token && chatId) {
       const { data: orderItems, error: orderItemsError } = await supabase
         .from("order_items")

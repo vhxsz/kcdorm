@@ -80,7 +80,10 @@ export default function Home() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const businessSlug = useSyncExternalStore(
     () => () => undefined,
-    () => new URLSearchParams(window.location.search).get("business"),
+    () => {
+      const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
+      return path || new URLSearchParams(window.location.search).get("business");
+    },
     () => null,
   );
   const [businessName, setBusinessName] = useState("");

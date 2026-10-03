@@ -15,7 +15,7 @@ insert into public.businesses (id, name, slug, telegram_bot_token, telegram_chat
 values (
   '00000000-0000-4000-8000-000000000001',
   'Pizza Next Door',
-  'pizza-next-door',
+  'main',
   null,
   null
 )

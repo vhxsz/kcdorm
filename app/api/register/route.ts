@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json(
-    { business, admin_url: "/admin", store_url: `/?business=${business.slug}` },
+    { business, admin_url: "/admin", store_url: `/${business.slug}` },
     { status: 201 },
   );
 }

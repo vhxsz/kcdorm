@@ -4,10 +4,12 @@
 2. Create the administrator's email and password under Authentication > Users.
 3. Run `supabase/set-admin-email.sql` to make `vitorheniqueamaral@gmail.com` an administrator.
 4. Run `supabase/migrations/20261002000000_multi_business.sql`.
-5. Add the four variables listed in `.env.example` to Vercel. Generate a long,
+5. Run `supabase/migrations/20261003000000_principal_business.sql` to assign
+   the original administrator, products, and orders to `/main`.
+6. Add the variables listed in `.env.example` to Vercel. Generate a long,
    random value for `ADMIN_REGISTRATION_CODE` and only share it with approved
    businesses.
-6. Deploy using the **Next.js** framework preset.
+7. Deploy using the **Next.js** framework preset.
 
 New businesses register at `/signup`; the admin panel is at `/admin`. Telegram
 credentials now belong to each business and are entered during registration.
