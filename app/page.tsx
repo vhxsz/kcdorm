@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   BarChart3,
   BellRing,
@@ -50,7 +50,6 @@ export type MenuItem = {
   category?: string;
   extras?: { name: string; price: number }[];
 };
-
 const demoProductImages: Record<string, string> = {
   "d0000000-0000-4000-8000-000000000001": "https://images.unsplash.com/photo-1579751626657-72bc17010498?auto=format&fit=crop&w=900&q=80",
   "d0000000-0000-4000-8000-000000000002": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=900&q=80",
@@ -77,41 +76,14 @@ const demoProductImages: Record<string, string> = {
 function getProductImage(item: MenuItem) {
   return item.image_url || demoProductImages[item.id] || "/menu-food.jpg";
 }
-const demoItems: MenuItem[] = [
-  {
-    id: "11111111-1111-4111-8111-111111111111",
-    title: "Pepperoni Hot Honey",
-    description: "Tomato sauce, mozzarella, crispy pepperoni, and hot honey.",
-    price: 19,
-    time: 25,
-    stock: 8,
-    pos: "20% 22%",
-    tag: "Most popular",
-  },
-  {
-    id: "22222222-2222-4222-8222-222222222222",
-    title: "Burrata Garden",
-    description: "Creamy burrata, cherry tomatoes, pesto, and fresh basil.",
-    price: 22,
-    time: 30,
-    stock: 5,
-    pos: "72% 78%",
-    tag: "New",
-  },
-  {
-    id: "33333333-3333-4333-8333-333333333333",
-    title: "Truffle Parm Fries",
-    description: "Crispy fries, Parmesan, herbs, and truffle mayo.",
-    price: 11,
-    time: 15,
-    stock: 12,
-    pos: "84% 18%",
-    tag: "Great for sharing",
-  },
-];
-
 export default function Home() {
-  const [items, setItems] = useState<MenuItem[]>(demoItems);
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const businessSlug = useSyncExternalStore(
+    () => () => undefined,
+    () => new URLSearchParams(window.location.search).get("business"),
+    () => null,
+  );
+  const [businessName, setBusinessName] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartExtras, setCartExtras] = useState<Record<string, string[]>>({});
   const [selectedProduct, setSelectedProduct] = useState<MenuItem | null>(null);
@@ -177,22 +149,33 @@ export default function Home() {
     return () => lifecycle.abort();
   }, []);
   useEffect(() => {
-    fetch("/api/products")
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+    if (!businessSlug) return;
+    fetch(`/api/products?business=${encodeURIComponent(businessSlug)}`)
+      .then(async (r) =>
+        r.ok
+          ? ((await r.json()) as {
+              business?: { name?: string };
+              products?: Array<Record<string, unknown>>;
+            })
+          : Promise.reject(),
+      )
       .then((data) => {
-        if (Array.isArray(data) && data.length)
+        setBusinessName(String(data.business?.name || businessSlug));
+        if (Array.isArray(data.products))
           setItems(
-            data.map((p, i) => ({
+            data.products.map((p: Record<string, unknown>, i: number) => ({
               ...p,
               price: Number(p.price),
-              time: p.delivery_minutes,
+              time: Number(p.delivery_minutes),
               pos: ["20% 22%", "72% 78%", "84% 18%"][i % 3],
-              tag: p.category || "Available",
-            })),
+              tag: String(p.category || "Available"),
+            }) as unknown as MenuItem),
           );
       })
       .catch(() => undefined);
-  }, []);
+  }, [businessSlug]);
+
+  if (!businessSlug) return <LandingPage />;
 
   return (
     <main className="min-h-screen bg-[#f6f8fc] text-[#172039]">
@@ -202,7 +185,7 @@ export default function Home() {
             <div className="grid size-11 place-items-center rounded-2xl bg-[#2457ff] text-white shadow-[0_8px_24px_rgba(36,87,255,.25)]">
               <Pizza className="size-6" />
             </div>
-            <div className="font-black tracking-[-.04em]">PIZZA NEXT DOOR</div>
+            <div className="font-black tracking-[-.04em]">{businessName || "LOADING MENU"}</div>
           </div>
           <div className="flex items-center gap-2">
             <Sheet>
@@ -216,6 +199,7 @@ export default function Home() {
               </SheetTrigger>
               <SheetContent className="w-full border-0 p-0 sm:max-w-md">
                 <Cart
+                  businessSlug={businessSlug}
                   items={items}
                   total={total}
                   cart={cart}
@@ -459,6 +443,7 @@ export default function Home() {
 }
 
 function Cart({
+  businessSlug,
   items,
   total,
   cart,
@@ -466,6 +451,7 @@ function Cart({
   add,
   remove,
 }: {
+  businessSlug: string;
   items: MenuItem[];
   total: number;
   cart: Record<string, number>;
@@ -544,6 +530,7 @@ function Cart({
             <b className="text-2xl">${total.toFixed(2)} CAD</b>
           </div>
           <Checkout
+            businessSlug={businessSlug}
             items={items}
             cart={cart}
             cartExtras={cartExtras}
@@ -556,11 +543,13 @@ function Cart({
 }
 
 function Checkout({
+  businessSlug,
   items,
   cart,
   cartExtras,
   total,
 }: {
+  businessSlug: string;
   items: MenuItem[];
   cart: Record<string, number>;
   cartExtras: Record<string, string[]>;
@@ -572,6 +561,7 @@ function Checkout({
   async function submit(form: FormData) {
     setError("");
     const body = {
+      business_slug: businessSlug,
       customer_name: form.get("name"),
       room_number: form.get("room"),
       scheduled_for: null,
@@ -757,6 +747,7 @@ export function AdminPanel({
       });
       if (error) throw error;
       setAuthenticated(true);
+      window.location.reload();
     } catch {
       setLoginError("Invalid email or password");
     }
@@ -931,11 +922,16 @@ export function AdminPanel({
       setOrders((current) => current.filter((order) => order.id !== id));
   }
   async function recordSale(form: FormData) {
+    const { data } = await createSupabaseClient().auth.getSession();
+    if (!data.session) return;
     const productId = String(form.get("product"));
     const quantity = Number(form.get("quantity"));
     const response = await fetch("/api/orders", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${data.session.access_token}`,
+      },
       body: JSON.stringify({
         customer_name: String(form.get("customer") || "Walk-in"),
         room_number: String(form.get("room") || "Counter"),
@@ -947,6 +943,8 @@ export function AdminPanel({
     if (response.ok) await loadOrders();
   }
   useEffect(() => {
+    // Loading is intentionally tied to the transition from signed-out to signed-in.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (authenticated) void loadOrders();
   }, [authenticated]);
   if (!authenticated)
@@ -1537,5 +1535,70 @@ function Stat({
       <p className="mt-1 text-3xl font-black tracking-tight">{value}</p>
       <p className="mt-1 text-xs font-semibold text-[#6d7893]">{detail}</p>
     </div>
+  );
+}
+
+function LandingPage() {
+  return (
+    <main className="min-h-screen overflow-hidden bg-[#f6f8fc] text-[#172039]">
+      <header className="border-b border-[#dfe5f1] bg-white/90 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="grid size-11 place-items-center rounded-2xl bg-[#2457ff] text-white shadow-[0_8px_24px_rgba(36,87,255,.25)]">
+              <Pizza className="size-6" />
+            </div>
+            <span className="font-black tracking-[-.04em]">DIRECT ORDERS</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost" className="rounded-full">
+              <a href="/admin">Sign in</a>
+            </Button>
+            <Button asChild className="rounded-full bg-[#2457ff] px-5">
+              <a href="/signup">Create a business</a>
+            </Button>
+          </div>
+        </div>
+      </header>
+      <section className="mx-auto grid min-h-[calc(100vh-82px)] max-w-7xl items-center gap-12 px-5 py-16 lg:grid-cols-[1.1fr_.9fr] lg:px-8">
+        <div>
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-[#e9eeff] px-4 py-2 text-sm font-bold text-[#2457ff]">
+            <Sparkles className="size-4" /> Online ordering for your business
+          </div>
+          <h1 className="max-w-3xl text-5xl font-black leading-[.94] tracking-[-.065em] md:text-7xl">
+            Your menu, your orders, your Telegram.
+          </h1>
+          <p className="mt-7 max-w-xl text-lg leading-relaxed text-[#6d7893]">
+            Create an independent online store, manage products, and receive every new order directly in your company&apos;s Telegram.
+          </p>
+          <div className="mt-9 flex flex-wrap gap-3">
+            <Button asChild className="h-13 rounded-full bg-[#2457ff] px-7 text-base font-bold">
+              <a href="/signup">Register my business</a>
+            </Button>
+            <Button asChild variant="outline" className="h-13 rounded-full px-7 text-base font-bold">
+              <a href="/admin">Open dashboard</a>
+            </Button>
+          </div>
+          <p className="mt-5 text-sm text-[#6d7893]">
+            New registrations require a code provided by the platform owner.
+          </p>
+        </div>
+        <div className="relative">
+          <div className="absolute -inset-12 rounded-full bg-[#2457ff]/10 blur-3xl" />
+          <div className="relative rotate-2 rounded-[36px] bg-[#172039] p-7 text-white shadow-2xl">
+            <div className="mb-8 flex items-center justify-between">
+              <span className="font-black">Business dashboard</span>
+              <span className="rounded-full bg-green-400/15 px-3 py-1 text-xs font-bold text-green-300">Online</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-3xl bg-white/8 p-5"><p className="text-sm text-white/60">Orders today</p><p className="mt-2 text-4xl font-black">24</p></div>
+              <div className="rounded-3xl bg-[#2457ff] p-5"><p className="text-sm text-blue-100">Revenue</p><p className="mt-2 text-3xl font-black">$486</p></div>
+            </div>
+            <div className="mt-4 rounded-3xl bg-white p-5 text-[#172039]">
+              <div className="flex items-center gap-4"><div className="grid size-12 place-items-center rounded-2xl bg-[#ffdf57]"><BellRing /></div><div><p className="font-black">New order received</p><p className="text-sm text-[#6d7893]">Sent to the correct Telegram account</p></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }

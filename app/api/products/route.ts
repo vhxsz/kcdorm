@@ -16,17 +16,32 @@ const productSchema = z.object({
     .default([]),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const slug = new URL(request.url).searchParams.get("business");
+    const admin = slug ? null : await requireAdmin(request);
+    if (!slug && !admin)
+      return NextResponse.json({ error: "Business is required" }, { status: 400 });
+    const supabase = createAdminClient();
+    const { data: business, error: businessError } = await supabase
+      .from("businesses")
+      .select("id,name,slug")
+      .eq(slug ? "slug" : "id", slug || admin!.businessId)
+      .eq("active", true)
+      .maybeSingle();
+    if (businessError) throw businessError;
+    if (!business)
+      return NextResponse.json({ error: "Business not found" }, { status: 404 });
     const { data, error } = await createAdminClient()
       .from("products")
       .select(
         "id,title,description,price,stock,weight_grams,delivery_minutes,image_url,category,extras",
       )
+      .eq("business_id", business.id)
       .eq("active", true)
       .order("created_at");
     if (error) throw error;
-    return NextResponse.json(data, {
+    return NextResponse.json({ business, products: data }, {
       headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=120" },
     });
   } catch {
@@ -38,7 +53,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await requireAdmin(request)))
+  const admin = await requireAdmin(request);
+  if (!admin)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = productSchema.safeParse(await request.json());
   if (!parsed.success)
@@ -48,7 +64,7 @@ export async function POST(request: Request) {
     );
   const { data, error } = await createAdminClient()
     .from("products")
-    .insert(parsed.data)
+    .insert({ ...parsed.data, business_id: admin.businessId })
     .select()
     .single();
   return error
@@ -57,7 +73,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!(await requireAdmin(request)))
+  const admin = await requireAdmin(request);
+  if (!admin)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = productSchema
     .extend({ id: z.string().uuid() })
@@ -72,6 +89,7 @@ export async function PATCH(request: Request) {
     .from("products")
     .update(product)
     .eq("id", id)
+    .eq("business_id", admin.businessId)
     .select()
     .single();
   return error
@@ -80,7 +98,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!(await requireAdmin(request)))
+  const admin = await requireAdmin(request);
+  if (!admin)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = new URL(request.url).searchParams.get("id");
   if (!id || !z.string().uuid().safeParse(id).success)
@@ -90,7 +109,8 @@ export async function DELETE(request: Request) {
   const { error } = await createAdminClient()
     .from("products")
     .update({ active: false })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("business_id", admin.businessId);
   return error
     ? NextResponse.json({ error: error.message }, { status: 500 })
     : new NextResponse(null, { status: 204 });

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 
 const orderSchema = z.object({
+  business_slug: z.string().trim().min(2).max(80).optional(),
   customer_name: z.string().trim().min(2).max(80),
   room_number: z.string().trim().min(1).max(20),
   scheduled_for: z.string().datetime().nullable().optional(),
@@ -28,12 +29,31 @@ export async function POST(request: Request) {
     );
   try {
     const supabase = createAdminClient();
+    const admin = parsed.data.business_slug
+      ? null
+      : await import("@/lib/supabase/admin").then(({ requireAdmin }) =>
+          requireAdmin(request),
+        );
+    if (!parsed.data.business_slug && !admin)
+      return NextResponse.json({ error: "Business is required" }, { status: 400 });
+    let businessQuery = supabase
+      .from("businesses")
+      .select("id,name,telegram_bot_token,telegram_chat_id")
+      .eq("active", true);
+    businessQuery = parsed.data.business_slug
+      ? businessQuery.eq("slug", parsed.data.business_slug)
+      : businessQuery.eq("id", admin!.businessId);
+    const { data: business, error: businessError } =
+      await businessQuery.maybeSingle();
+    if (businessError) throw businessError;
+    if (!business)
+      return NextResponse.json({ error: "Business not found" }, { status: 404 });
     const { data: order, error } = await supabase.rpc("place_order", {
-      payload: parsed.data,
+      payload: { ...parsed.data, business_id: business.id },
     });
     if (error) throw error;
-    const token = process.env.TELEGRAM_BOT_TOKEN,
-      chatId = process.env.TELEGRAM_CHAT_ID;
+    const token = business.telegram_bot_token,
+      chatId = business.telegram_chat_id;
     if (token && chatId) {
       const { data: orderItems, error: orderItemsError } = await supabase
         .from("order_items")

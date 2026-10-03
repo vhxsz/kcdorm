@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
-  if (!(await requireAdmin(request)))
+  const admin = await requireAdmin(request);
+  if (!admin)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const form = await request.formData();
   const file = form.get("file");
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     );
   }
   const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${crypto.randomUUID()}.${extension}`;
+  const path = `${admin.businessId}/${crypto.randomUUID()}.${extension}`;
   const supabase = createAdminClient();
   const { error } = await supabase.storage
     .from("product-images")

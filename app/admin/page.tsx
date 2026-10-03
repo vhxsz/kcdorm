@@ -2,14 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { AdminPanel, type MenuItem } from "../page";
+import { createClient as createSupabaseClient } from "@/lib/supabase/browser";
 
 export default function AdminPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [configurationMissing, setConfigurationMissing] = useState(false);
 
   useEffect(() => {
-    fetch("/api/products")
-      .then((response) => (response.ok ? response.json() : []))
-      .then((products: unknown) =>
+    let supabase;
+    try {
+      supabase = createSupabaseClient();
+    } catch {
+      queueMicrotask(() => setConfigurationMissing(true));
+      return;
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) return;
+      fetch("/api/products", {
+        headers: { authorization: `Bearer ${data.session.access_token}` },
+      })
+      .then(async (response) =>
+        response.ok
+          ? ((await response.json()) as { products?: unknown })
+          : { products: [] },
+      )
+      .then((payload) => {
+        const products = payload.products;
         setItems(
           (Array.isArray(products) ? products : []).map(
             (product: Record<string, unknown>, index: number) => ({
@@ -20,9 +38,30 @@ export default function AdminPage() {
               tag: String(product.category || "Available"),
             }),
           ),
-        ),
-      );
+        );
+      });
+    });
   }, []);
+
+  if (configurationMissing)
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#f6f8fc] px-5 text-[#172039]">
+        <section className="w-full max-w-lg rounded-[28px] border bg-white p-8 shadow-xl">
+          <p className="text-sm font-bold uppercase tracking-[.16em] text-[#2457ff]">
+            Local configuration
+          </p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight">
+            Connect Supabase to access the dashboard
+          </h1>
+          <p className="mt-4 leading-relaxed text-[#6d7893]">
+            Create a <code>.env.local</code> file and add your Supabase project URL, publishable key, and secret key. The homepage remains available without this connection.
+          </p>
+          <a href="/" className="mt-7 inline-flex h-11 items-center rounded-full bg-[#2457ff] px-6 font-bold text-white">
+            Back to homepage
+          </a>
+        </section>
+      </main>
+    );
 
   return (
     <main className="min-h-screen bg-[#f6f8fc] text-[#172039]">

@@ -22,8 +22,8 @@ export async function requireAdmin(request: Request) {
   if (!user) return null;
   const { data } = await supabase
     .from("admin_users")
-    .select("user_id")
+    .select("user_id,business_id")
     .eq("user_id", user.id)
     .maybeSingle();
-  return data ? user : null;
+  return data ? { user, businessId: data.business_id as string } : null;
 }

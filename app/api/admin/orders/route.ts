@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase/admin";
 
 export async function GET(request: Request) {
-  if (!(await requireAdmin(request)))
+  const admin = await requireAdmin(request);
+  if (!admin)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { data, error } = await createAdminClient()
     .from("orders")
     .select(
       "id,order_number,customer_name,room_number,payment_method,status,total,scheduled_for,created_at,order_items(title_snapshot,quantity,unit_price,extras)",
     )
+    .eq("business_id", admin.businessId)
     .order("created_at", { ascending: false })
     .limit(100);
   return error
@@ -17,7 +19,8 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!(await requireAdmin(request)))
+  const admin = await requireAdmin(request);
+  if (!admin)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = new URL(request.url).searchParams.get("id");
   if (!id)
@@ -25,7 +28,8 @@ export async function DELETE(request: Request) {
   const { error } = await createAdminClient()
     .from("orders")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("business_id", admin.businessId);
   return error
     ? NextResponse.json({ error: error.message }, { status: 500 })
     : NextResponse.json({ deleted: true });
