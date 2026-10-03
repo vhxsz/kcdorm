@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AdminPanel, type MenuItem } from "../page";
 import { createClient as createSupabaseClient } from "@/lib/supabase/browser";
 
@@ -56,9 +57,9 @@ export default function AdminPage() {
           <p className="mt-4 leading-relaxed text-[#6d7893]">
             Create a <code>.env.local</code> file and add your Supabase project URL, publishable key, and secret key. The homepage remains available without this connection.
           </p>
-          <a href="/" className="mt-7 inline-flex h-11 items-center rounded-full bg-[#2457ff] px-6 font-bold text-white">
+          <Link href="/" className="mt-7 inline-flex h-11 items-center rounded-full bg-[#2457ff] px-6 font-bold text-white">
             Back to homepage
-          </a>
+          </Link>
         </section>
       </main>
     );

@@ -1551,7 +1551,7 @@ function LandingPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" className="rounded-full">
-              <a href="/admin">Sign in</a>
+              <a href="/signin">Sign in</a>
             </Button>
             <Button asChild className="rounded-full bg-[#2457ff] px-5">
               <a href="/signup">Create a business</a>
@@ -1575,7 +1575,7 @@ function LandingPage() {
               <a href="/signup">Register my business</a>
             </Button>
             <Button asChild variant="outline" className="h-13 rounded-full px-7 text-base font-bold">
-              <a href="/admin">Open dashboard</a>
+              <a href="/signin">Open my store</a>
             </Button>
           </div>
           <p className="mt-5 text-sm text-[#6d7893]">
