@@ -87,6 +87,9 @@ function getProductMeasure(item: MenuItem) {
 }
 
 function parseVariants(value: string) {
+  if (value.trim().startsWith("[")) {
+    try { return JSON.parse(value); } catch { return []; }
+  }
   return value.split("\n").map((line) => {
     const [name, price, measureValue, measureUnit] = line.split("|");
     return {
@@ -96,6 +99,56 @@ function parseVariants(value: string) {
       measure_unit: measureUnit?.trim().toLowerCase() === "ml" ? "ml" as const : "g" as const,
     };
   }).filter((variant) => variant.name && Number.isFinite(variant.price));
+}
+
+function parseExtras(value: string) {
+  if (value.trim().startsWith("[")) {
+    try { return JSON.parse(value); } catch { return []; }
+  }
+  return value.split("\n").map((line) => {
+    const [name, price] = line.split("|");
+    return { name: name?.trim(), price: Number(price) };
+  }).filter((extra) => extra.name && Number.isFinite(extra.price));
+}
+
+function VariantEditor({ name, initial = [], drinks = false }: { name: string; initial?: NonNullable<MenuItem["variants"]>; drinks?: boolean }) {
+  const [rows, setRows] = useState(initial);
+  const update = (index: number, patch: Partial<NonNullable<MenuItem["variants"]>[number]>) =>
+    setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row));
+  return (
+    <div className="space-y-3">
+      <input type="hidden" name={name} value={JSON.stringify(rows)} />
+      {rows.map((row, index) => (
+        <div key={index} className="grid gap-2 rounded-2xl border bg-[#f7f9fd] p-3 sm:grid-cols-[1.4fr_.8fr_.8fr_.7fr_auto]">
+          <Input aria-label="Variant name" placeholder="e.g. Large" value={row.name} onChange={(event) => update(index, { name: event.target.value })} />
+          <Input aria-label="Additional price" type="number" step="0.01" min="0" placeholder="+$0.00" value={row.price} onChange={(event) => update(index, { price: Number(event.target.value) })} />
+          <Input aria-label="Amount" type="number" min="1" placeholder={drinks ? "355" : "450"} value={row.measure_value || ""} onChange={(event) => update(index, { measure_value: event.target.value ? Number(event.target.value) : null })} />
+          <select aria-label="Unit" value={row.measure_unit || (drinks ? "ml" : "g")} onChange={(event) => update(index, { measure_unit: event.target.value as "g" | "ml" })} className="h-11 rounded-xl border bg-white px-2">
+            {drinks && <option value="ml">mL</option>}<option value="g">grams</option>
+          </select>
+          <Button type="button" variant="ghost" aria-label="Remove variant" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))}><Trash2 className="size-4" /></Button>
+        </div>
+      ))}
+      <Button type="button" variant="outline" className="rounded-xl" onClick={() => setRows((current) => [...current, { name: "", price: 0, measure_value: null, measure_unit: drinks ? "ml" : "g" }])}><Plus className="size-4" /> Add size or variant</Button>
+    </div>
+  );
+}
+
+function ExtraEditor({ name, initial = [] }: { name: string; initial?: NonNullable<MenuItem["extras"]> }) {
+  const [rows, setRows] = useState(initial);
+  return (
+    <div className="space-y-3">
+      <input type="hidden" name={name} value={JSON.stringify(rows)} />
+      {rows.map((row, index) => (
+        <div key={index} className="grid grid-cols-[1fr_130px_auto] gap-2 rounded-2xl border bg-[#f7f9fd] p-3">
+          <Input aria-label="Extra name" placeholder="e.g. Extra cheese" value={row.name} onChange={(event) => setRows((current) => current.map((item, rowIndex) => rowIndex === index ? { ...item, name: event.target.value } : item))} />
+          <Input aria-label="Extra price" type="number" min="0" step="0.01" placeholder="$0.00" value={row.price} onChange={(event) => setRows((current) => current.map((item, rowIndex) => rowIndex === index ? { ...item, price: Number(event.target.value) } : item))} />
+          <Button type="button" variant="ghost" aria-label="Remove extra" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))}><Trash2 className="size-4" /></Button>
+        </div>
+      ))}
+      <Button type="button" variant="outline" className="rounded-xl" onClick={() => setRows((current) => [...current, { name: "", price: 0 }])}><Plus className="size-4" /> Add extra</Button>
+    </div>
+  );
 }
 export default function Home() {
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -828,13 +881,7 @@ export function AdminPanel({
           throw new Error(uploadData.error || "The image could not be uploaded.");
         imageUrl = uploadData.url;
       }
-      const extras = String(form.get("extras") || "")
-        .split("\n")
-        .map((line) => {
-          const [name, price] = line.split("|");
-          return { name: name?.trim(), price: Number(price) };
-        })
-        .filter((extra) => extra.name && Number.isFinite(extra.price));
+      const extras = parseExtras(String(form.get("extras") || ""));
       const variants = parseVariants(String(form.get("variants") || ""));
       const response = await fetch("/api/products", {
         method: "POST",
@@ -911,13 +958,7 @@ export function AdminPanel({
           throw new Error(uploadData.error || "The image could not be uploaded.");
         imageUrl = uploadData.url;
       }
-      const extras = String(form.get("extras") || "")
-        .split("\n")
-        .map((line) => {
-          const [name, price] = line.split("|");
-          return { name: name?.trim(), price: Number(price) };
-        })
-        .filter((extra) => extra.name && Number.isFinite(extra.price));
+      const extras = parseExtras(String(form.get("extras") || ""));
       const variants = parseVariants(String(form.get("variants") || ""));
       const response = await fetch("/api/products", {
         method: "PATCH",
@@ -1153,7 +1194,7 @@ export function AdminPanel({
                     placeholder="Ingredients and details"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Price (CAD)</Label>
                     <Input
@@ -1175,9 +1216,9 @@ export function AdminPanel({
                   </div>
                   <div className="space-y-2">
                     <Label>{createCategory === "Drinks" ? "Volume / weight" : "Weight"}</Label>
-                    <div className="flex gap-2">
-                      <Input name="measure_value" type="number" min="1" placeholder={createCategory === "Drinks" ? "355" : "450"} />
-                      <select name="measure_unit" defaultValue={createCategory === "Drinks" ? "ml" : "g"} key={createCategory} className="h-11 rounded-xl border bg-white px-2">
+                    <div className="grid grid-cols-[minmax(100px,1fr)_120px] gap-2">
+                      <Input className="min-w-0" name="measure_value" type="number" min="1" placeholder={createCategory === "Drinks" ? "355" : "450"} />
+                      <select name="measure_unit" defaultValue={createCategory === "Drinks" ? "ml" : "g"} key={createCategory} className="h-11 w-full rounded-xl border bg-white px-2">
                         {createCategory === "Drinks" && <option value="ml">mL</option>}
                         <option value="g">grams</option>
                       </select>
@@ -1209,19 +1250,11 @@ export function AdminPanel({
                 </div>
                 <div className="space-y-2">
                   <Label>Sizes and variants</Label>
-                  <textarea name="variants" className="min-h-24 w-full rounded-xl border p-3 text-sm" placeholder={"Small|0|250|g\nMedium|3|355|ml\nLarge|5|500|ml"} />
-                  <p className="text-xs text-[#6d7893]">One per line: Name|Additional price|Amount|Unit. Units can be g or ml.</p>
+                  <VariantEditor name="variants" drinks={createCategory === "Drinks"} />
                 </div>
                 <div className="space-y-2">
                   <Label>Extras and prices</Label>
-                  <textarea
-                    name="extras"
-                    className="min-h-24 w-full rounded-xl border p-3 text-sm"
-                    placeholder={"Extra cheese|3.00\nStuffed crust|4.50"}
-                  />
-                  <p className="text-xs text-[#6d7893]">
-                    Enter one extra per line using Name|Price.
-                  </p>
+                  <ExtraEditor name="extras" />
                 </div>
                 {saveMessage && (
                   <p className="text-sm font-bold text-[#2457ff]">
@@ -1465,7 +1498,7 @@ export function AdminPanel({
                     <Label>Description</Label>
                     <Input required name="description" defaultValue={editingItem.description} />
                   </div>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Price (CAD)</Label>
                       <Input required name="price" type="number" step="0.01" defaultValue={editingItem.price} />
@@ -1476,8 +1509,8 @@ export function AdminPanel({
                     </div>
                     <div className="space-y-2">
                       <Label>{editingItem.category === "Drinks" ? "Volume / weight" : "Weight"}</Label>
-                      <div className="flex gap-2">
-                        <Input name="measure_value" type="number" min="1" defaultValue={editingItem.measure_value || editingItem.weight_grams || ""} />
+                      <div className="grid grid-cols-[minmax(100px,1fr)_120px] gap-2">
+                        <Input className="min-w-0" name="measure_value" type="number" min="1" defaultValue={editingItem.measure_value || editingItem.weight_grams || ""} />
                         <select name="measure_unit" value={editingItem.measure_unit || (editingItem.category === "Drinks" ? "ml" : "g")} onChange={(event) => setEditingItem({ ...editingItem, measure_unit: event.target.value as "g" | "ml" })} className="h-11 rounded-xl border bg-white px-2">
                           {editingItem.category === "Drinks" && <option value="ml">mL</option>}
                           <option value="g">grams</option>
@@ -1500,16 +1533,11 @@ export function AdminPanel({
                   </div>
                   <div className="space-y-2">
                     <Label>Sizes and variants</Label>
-                    <textarea name="variants" className="min-h-24 w-full rounded-xl border p-3 text-sm" defaultValue={(editingItem.variants || []).map((variant) => `${variant.name}|${Number(variant.price).toFixed(2)}|${variant.measure_value || ""}|${variant.measure_unit || "g"}`).join("\n")} />
-                    <p className="text-xs text-[#6d7893]">One per line: Name|Additional price|Amount|Unit.</p>
+                    <VariantEditor key={`variants-${editingItem.id}`} name="variants" initial={editingItem.variants || []} drinks={editingItem.category === "Drinks"} />
                   </div>
                   <div className="space-y-2">
                     <Label>Extras and prices</Label>
-                    <textarea
-                      name="extras"
-                      className="min-h-24 w-full rounded-xl border p-3 text-sm"
-                      defaultValue={(editingItem.extras || []).map((extra) => `${extra.name}|${extra.price.toFixed(2)}`).join("\n")}
-                    />
+                    <ExtraEditor key={`extras-${editingItem.id}`} name="extras" initial={editingItem.extras || []} />
                   </div>
                   {editMessage && <p className="text-sm font-bold text-red-600">{editMessage}</p>}
                   <Button type="submit" className="h-12 rounded-2xl bg-[#2457ff] font-bold">
