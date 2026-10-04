@@ -14,6 +14,7 @@ const orderSchema = z.object({
         product_id: z.string().uuid(),
         quantity: z.number().int().min(1).max(20),
         extras: z.array(z.string().max(80)).default([]),
+        variant: z.string().max(80).optional().nullable(),
       }),
     )
     .min(1)

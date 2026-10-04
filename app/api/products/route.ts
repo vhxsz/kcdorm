@@ -8,12 +8,20 @@ const productSchema = z.object({
   price: z.number().positive().max(10000),
   stock: z.number().int().min(0).max(10000),
   weight_grams: z.number().int().positive().max(100000).optional().nullable(),
+  measure_value: z.number().int().positive().max(100000).optional().nullable(),
+  measure_unit: z.enum(["g", "ml"]).default("g"),
   delivery_minutes: z.number().int().min(1).max(240),
   image_url: z.string().url().optional().nullable(),
   category: z.string().min(2).max(50).default("Pizzas"),
   extras: z
     .array(z.object({ name: z.string(), price: z.number().min(0) }))
     .default([]),
+  variants: z.array(z.object({
+    name: z.string().min(1).max(80),
+    price: z.number().min(0),
+    measure_value: z.number().int().positive().optional().nullable(),
+    measure_unit: z.enum(["g", "ml"]).optional().nullable(),
+  })).default([]),
 });
 
 export async function GET(request: Request) {
@@ -32,14 +40,25 @@ export async function GET(request: Request) {
     if (businessError) throw businessError;
     if (!business)
       return NextResponse.json({ error: "Business not found" }, { status: 404 });
-    const { data, error } = await createAdminClient()
+    let { data, error } = await createAdminClient()
       .from("products")
       .select(
-        "id,title,description,price,stock,weight_grams,delivery_minutes,image_url,category,extras",
+        "id,title,description,price,stock,weight_grams,measure_value,measure_unit,delivery_minutes,image_url,category,extras,variants",
       )
       .eq("business_id", business.id)
       .eq("active", true)
       .order("created_at");
+    // Keep the current menu online between deploy and the measure/variant migration.
+    if (error?.message.includes("measure_") || error?.message.includes("variants")) {
+      const legacy = await createAdminClient()
+        .from("products")
+        .select("id,title,description,price,stock,weight_grams,delivery_minutes,image_url,category,extras")
+        .eq("business_id", business.id)
+        .eq("active", true)
+        .order("created_at");
+      data = legacy.data?.map((product) => ({ ...product, measure_value: product.weight_grams, measure_unit: "g", variants: [] })) ?? null;
+      error = legacy.error;
+    }
     if (error) throw error;
     return NextResponse.json({ business, products: data }, {
       headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=120" },

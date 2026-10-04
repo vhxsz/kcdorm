@@ -44,11 +44,14 @@ export type MenuItem = {
   time: number;
   stock: number;
   weight_grams?: number | null;
+  measure_value?: number | null;
+  measure_unit?: "g" | "ml";
   pos: string;
   tag: string;
   image_url?: string | null;
   category?: string;
   extras?: { name: string; price: number }[];
+  variants?: { name: string; price: number; measure_value?: number | null; measure_unit?: "g" | "ml" | null }[];
 };
 const demoProductImages: Record<string, string> = {
   "d0000000-0000-4000-8000-000000000001": "https://images.unsplash.com/photo-1579751626657-72bc17010498?auto=format&fit=crop&w=900&q=80",
@@ -76,6 +79,24 @@ const demoProductImages: Record<string, string> = {
 function getProductImage(item: MenuItem) {
   return item.image_url || demoProductImages[item.id] || "/menu-food.jpg";
 }
+
+function getProductMeasure(item: MenuItem) {
+  const value = item.measure_value ?? item.weight_grams;
+  if (!value) return "";
+  return ` · ${value} ${item.measure_unit || "g"}`;
+}
+
+function parseVariants(value: string) {
+  return value.split("\n").map((line) => {
+    const [name, price, measureValue, measureUnit] = line.split("|");
+    return {
+      name: name?.trim(),
+      price: Number(price || 0),
+      measure_value: measureValue ? Number(measureValue) : null,
+      measure_unit: measureUnit?.trim().toLowerCase() === "ml" ? "ml" as const : "g" as const,
+    };
+  }).filter((variant) => variant.name && Number.isFinite(variant.price));
+}
 export default function Home() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const businessSlug = useSyncExternalStore(
@@ -89,8 +110,10 @@ export default function Home() {
   const [businessName, setBusinessName] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartExtras, setCartExtras] = useState<Record<string, string[]>>({});
+  const [cartVariants, setCartVariants] = useState<Record<string, string>>({});
   const [selectedProduct, setSelectedProduct] = useState<MenuItem | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
+  const [selectedVariant, setSelectedVariant] = useState("");
   const [category, setCategory] = useState("All");
   const count = Object.values(cart).reduce((a, b) => a + b, 0);
   const total = useMemo(
@@ -99,9 +122,10 @@ export default function Home() {
         const extrasTotal = (item.extras || [])
           .filter((extra) => (cartExtras[item.id] || []).includes(extra.name))
           .reduce((value, extra) => value + Number(extra.price), 0);
-        return sum + (item.price + extrasTotal) * (cart[item.id] || 0);
+        const variantPrice = Number((item.variants || []).find((variant) => variant.name === cartVariants[item.id])?.price || 0);
+        return sum + (item.price + extrasTotal + variantPrice) * (cart[item.id] || 0);
       }, 0),
-    [cart, cartExtras, items],
+    [cart, cartExtras, cartVariants, items],
   );
   const add = (id: string) =>
     setCart((current) => ({ ...current, [id]: (current[id] || 0) + 1 }));
@@ -207,6 +231,7 @@ export default function Home() {
                   total={total}
                   cart={cart}
                   cartExtras={cartExtras}
+                  cartVariants={cartVariants}
                   add={add}
                   remove={remove}
                 />
@@ -317,7 +342,7 @@ export default function Home() {
                       </p>
                       <p className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-[#6d7893]">
                         <Clock3 className="size-3.5" /> {item.time} min
-                        {item.weight_grams ? ` · ${item.weight_grams} g` : ""}
+                        {getProductMeasure(item)}
                       </p>
                     </div>
                     {cart[item.id] ? (
@@ -348,9 +373,10 @@ export default function Home() {
                       <Button
                         onClick={(event) => {
                           event.stopPropagation();
-                          if (item.extras?.length) {
+                          if (item.extras?.length || item.variants?.length) {
                             setSelectedProduct(item);
                             setSelectedExtras([]);
+                            setSelectedVariant(item.variants?.[0]?.name || "");
                           } else add(item.id);
                         }}
                         className="size-11 rounded-full bg-[#2457ff] p-0 hover:bg-[#1744d4]"
@@ -378,9 +404,19 @@ export default function Home() {
                 </DialogTitle>
               </DialogHeader>
               <p className="text-sm text-[#6d7893]">
-                Choose any extras you would like to add.
+                Choose a size or variant and any extras you would like to add.
               </p>
               <div className="space-y-2 py-3">
+                {selectedProduct.variants?.map((variant) => (
+                  <label key={variant.name} className="flex cursor-pointer items-center justify-between rounded-2xl border p-4">
+                    <span className="flex items-center gap-3">
+                      <input type="radio" name="variant" checked={selectedVariant === variant.name} onChange={() => setSelectedVariant(variant.name)} />
+                      <b>{variant.name}</b>
+                      {variant.measure_value && <span className="text-sm text-[#6d7893]">{variant.measure_value} {variant.measure_unit}</span>}
+                    </span>
+                    <span>{Number(variant.price) ? `+$${Number(variant.price).toFixed(2)}` : "Included"}</span>
+                  </label>
+                ))}
                 {selectedProduct.extras?.length ? (
                   selectedProduct.extras.map((extra) => (
                     <label
@@ -417,6 +453,10 @@ export default function Home() {
                     ...current,
                     [selectedProduct.id]: selectedExtras,
                   }));
+                  setCartVariants((current) => ({
+                    ...current,
+                    [selectedProduct.id]: selectedVariant,
+                  }));
                   add(selectedProduct.id);
                   setSelectedProduct(null);
                 }}
@@ -426,7 +466,8 @@ export default function Home() {
                   selectedProduct.price +
                   (selectedProduct.extras || [])
                     .filter((extra) => selectedExtras.includes(extra.name))
-                    .reduce((sum, extra) => sum + Number(extra.price), 0)
+                    .reduce((sum, extra) => sum + Number(extra.price), 0) +
+                  Number((selectedProduct.variants || []).find((variant) => variant.name === selectedVariant)?.price || 0)
                 ).toFixed(2)}
               </Button>
             </>
@@ -451,6 +492,7 @@ function Cart({
   total,
   cart,
   cartExtras,
+  cartVariants,
   add,
   remove,
 }: {
@@ -459,6 +501,7 @@ function Cart({
   total: number;
   cart: Record<string, number>;
   cartExtras: Record<string, string[]>;
+  cartVariants: Record<string, string>;
   add: (id: string) => void;
   remove: (id: string) => void;
 }) {
@@ -505,6 +548,7 @@ function Cart({
                       + {cartExtras[item.id].join(", ")}
                     </p>
                   )}
+                  {cartVariants[item.id] && <p className="text-xs font-bold text-[#6d7893]">{cartVariants[item.id]}</p>}
                   <div className="mt-2 flex items-center gap-3">
                     <button
                       onClick={() => remove(item.id)}
@@ -537,6 +581,7 @@ function Cart({
             items={items}
             cart={cart}
             cartExtras={cartExtras}
+            cartVariants={cartVariants}
             total={total}
           />
         </div>
@@ -550,12 +595,14 @@ function Checkout({
   items,
   cart,
   cartExtras,
+  cartVariants,
   total,
 }: {
   businessSlug: string;
   items: MenuItem[];
   cart: Record<string, number>;
   cartExtras: Record<string, string[]>;
+  cartVariants: Record<string, string>;
   total: number;
 }) {
   const [sent, setSent] = useState(false);
@@ -575,6 +622,7 @@ function Checkout({
           product_id: i.id,
           quantity: cart[i.id],
           extras: cartExtras[i.id] || [],
+          variant: cartVariants[i.id] || null,
         })),
     };
     const response = await fetch("/api/orders", {
@@ -734,6 +782,7 @@ export function AdminPanel({
   >([]);
   const [cost, setCost] = useState("");
   const [sellingPrice, setSellingPrice] = useState("");
+  const [createCategory, setCreateCategory] = useState("Pizzas");
   useEffect(() => {
     try {
       createSupabaseClient()
@@ -786,6 +835,7 @@ export function AdminPanel({
           return { name: name?.trim(), price: Number(price) };
         })
         .filter((extra) => extra.name && Number.isFinite(extra.price));
+      const variants = parseVariants(String(form.get("variants") || ""));
       const response = await fetch("/api/products", {
         method: "POST",
         headers: {
@@ -797,12 +847,17 @@ export function AdminPanel({
           description: String(form.get("description")),
           price: Number(form.get("price")),
           stock: Number(form.get("stock")),
-          weight_grams: form.get("weight_grams")
-            ? Number(form.get("weight_grams"))
+          weight_grams: form.get("measure_unit") === "g" && form.get("measure_value")
+            ? Number(form.get("measure_value"))
             : null,
+          measure_value: form.get("measure_value")
+            ? Number(form.get("measure_value"))
+            : null,
+          measure_unit: String(form.get("measure_unit") || "g"),
           delivery_minutes: Number(form.get("delivery_minutes")),
           category: String(form.get("category") || "Pizzas"),
           extras,
+          variants,
           image_url: imageUrl,
         }),
       });
@@ -863,6 +918,7 @@ export function AdminPanel({
           return { name: name?.trim(), price: Number(price) };
         })
         .filter((extra) => extra.name && Number.isFinite(extra.price));
+      const variants = parseVariants(String(form.get("variants") || ""));
       const response = await fetch("/api/products", {
         method: "PATCH",
         headers: {
@@ -875,12 +931,17 @@ export function AdminPanel({
           description: String(form.get("description")),
           price: Number(form.get("price")),
           stock: Number(form.get("stock")),
-          weight_grams: form.get("weight_grams")
-            ? Number(form.get("weight_grams"))
+          weight_grams: form.get("measure_unit") === "g" && form.get("measure_value")
+            ? Number(form.get("measure_value"))
             : null,
+          measure_value: form.get("measure_value")
+            ? Number(form.get("measure_value"))
+            : null,
+          measure_unit: String(form.get("measure_unit") || "g"),
           delivery_minutes: Number(form.get("delivery_minutes")),
           category: String(form.get("category") || "Pizzas"),
           extras,
+          variants,
           image_url: imageUrl,
         }),
       });
@@ -1113,13 +1174,14 @@ export function AdminPanel({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Weight (g)</Label>
-                    <Input
-                      name="weight_grams"
-                      type="number"
-                      min="1"
-                      placeholder="450"
-                    />
+                    <Label>{createCategory === "Drinks" ? "Volume / weight" : "Weight"}</Label>
+                    <div className="flex gap-2">
+                      <Input name="measure_value" type="number" min="1" placeholder={createCategory === "Drinks" ? "355" : "450"} />
+                      <select name="measure_unit" defaultValue={createCategory === "Drinks" ? "ml" : "g"} key={createCategory} className="h-11 rounded-xl border bg-white px-2">
+                        {createCategory === "Drinks" && <option value="ml">mL</option>}
+                        <option value="g">grams</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Prep time</Label>
@@ -1135,6 +1197,8 @@ export function AdminPanel({
                   <Label>Category</Label>
                   <select
                     name="category"
+                    value={createCategory}
+                    onChange={(event) => setCreateCategory(event.target.value)}
                     className="h-11 w-full rounded-xl border bg-white px-3"
                   >
                     <option>Pizzas</option>
@@ -1142,6 +1206,11 @@ export function AdminPanel({
                     <option>Sides</option>
                     <option>Drinks</option>
                   </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Sizes and variants</Label>
+                  <textarea name="variants" className="min-h-24 w-full rounded-xl border p-3 text-sm" placeholder={"Small|0|250|g\nMedium|3|355|ml\nLarge|5|500|ml"} />
+                  <p className="text-xs text-[#6d7893]">One per line: Name|Additional price|Amount|Unit. Units can be g or ml.</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Extras and prices</Label>
@@ -1306,7 +1375,7 @@ export function AdminPanel({
                   <b>{item.title}</b>
                   <p className="text-sm text-[#6d7893]">
                     ${item.price.toFixed(2)} · {item.time} min
-                    {item.weight_grams ? ` · ${item.weight_grams} g` : ""}
+                    {getProductMeasure(item)}
                   </p>
                 </div>
                 <div className="text-right">
@@ -1406,8 +1475,14 @@ export function AdminPanel({
                       <Input required name="stock" type="number" defaultValue={editingItem.stock} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Weight (g)</Label>
-                      <Input name="weight_grams" type="number" min="1" defaultValue={editingItem.weight_grams || ""} />
+                      <Label>{editingItem.category === "Drinks" ? "Volume / weight" : "Weight"}</Label>
+                      <div className="flex gap-2">
+                        <Input name="measure_value" type="number" min="1" defaultValue={editingItem.measure_value || editingItem.weight_grams || ""} />
+                        <select name="measure_unit" value={editingItem.measure_unit || (editingItem.category === "Drinks" ? "ml" : "g")} onChange={(event) => setEditingItem({ ...editingItem, measure_unit: event.target.value as "g" | "ml" })} className="h-11 rounded-xl border bg-white px-2">
+                          {editingItem.category === "Drinks" && <option value="ml">mL</option>}
+                          <option value="g">grams</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Prep time</Label>
@@ -1416,12 +1491,17 @@ export function AdminPanel({
                   </div>
                   <div className="space-y-2">
                     <Label>Category</Label>
-                    <select name="category" defaultValue={editingItem.category || editingItem.tag} className="h-11 w-full rounded-xl border bg-white px-3">
+                    <select name="category" value={editingItem.category || editingItem.tag} onChange={(event) => setEditingItem({ ...editingItem, category: event.target.value, measure_unit: event.target.value === "Drinks" ? "ml" : "g" })} className="h-11 w-full rounded-xl border bg-white px-3">
                       <option>Pizzas</option>
                       <option>Snacks</option>
                       <option>Sides</option>
                       <option>Drinks</option>
                     </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Sizes and variants</Label>
+                    <textarea name="variants" className="min-h-24 w-full rounded-xl border p-3 text-sm" defaultValue={(editingItem.variants || []).map((variant) => `${variant.name}|${Number(variant.price).toFixed(2)}|${variant.measure_value || ""}|${variant.measure_unit || "g"}`).join("\n")} />
+                    <p className="text-xs text-[#6d7893]">One per line: Name|Additional price|Amount|Unit.</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Extras and prices</Label>
