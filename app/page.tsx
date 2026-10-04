@@ -1416,6 +1416,9 @@ export function AdminPanel({
                     ${item.price.toFixed(2)} · {item.time} min
                     {getProductMeasure(item)}
                   </p>
+                  <p className="text-xs font-bold text-[#2457ff]">
+                    Cost ${Number(item.cost_price || 0).toFixed(2)} · Margin {item.price > 0 ? (((item.price - Number(item.cost_price || 0)) / item.price) * 100).toFixed(1) : "0.0"}%
+                  </p>
                 </div>
                 <div className="text-right">
                   <b>{item.stock} units</b>
