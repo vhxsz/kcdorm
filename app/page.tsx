@@ -1662,7 +1662,7 @@ function FinanceDashboard() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h3 className="text-3xl font-black">Finance dashboard</h3><p className="text-sm text-[#6d7893]">Only administrator-confirmed payments are included.</p></div>
+        <div><h3 className="text-3xl font-black">Finance dashboard</h3><p className="text-sm text-[#6d7893]">Only administrator-confirmed payments are included. Product costs are recorded when each order is placed.</p></div>
         <select value={days} onChange={(event) => setDays(event.target.value)} className="h-11 rounded-xl border bg-white px-4"><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option></select>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

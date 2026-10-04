@@ -11,7 +11,9 @@
 7. Run `supabase/migrations/20261004000000_finance.sql` to add product costs,
    payment confirmations, and bank or cash accounts. Existing orders start as
    pending; finance totals include them only after an administrator confirms
-   payment. Historical costs use current product costs as an estimate.
+   payment. Costs for orders created before this migration cannot be recovered
+   from the old data and start at zero; set purchase costs on products for
+   accurate profit figures on future orders.
 8. Add the variables listed in `.env.example` to Vercel. Generate a long,
    random value for `ADMIN_REGISTRATION_CODE` and only share it with approved
    businesses.
