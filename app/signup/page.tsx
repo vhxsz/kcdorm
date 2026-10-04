@@ -55,7 +55,7 @@ export default function SignupPage() {
           {message && <p className={`mt-5 text-sm font-bold ${created ? "text-green-700" : "text-[#6d7893]"}`}>{message}</p>}
           {created ? (
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              <Button asChild className="h-12 rounded-xl bg-[#2457ff]"><a href="/signin">Sign in</a></Button>
+              <Button asChild className="h-12 rounded-xl bg-[#2457ff]"><Link href="/signin">Sign in</Link></Button>
               <Button asChild variant="outline" className="h-12 rounded-xl"><a href={created.store_url}>Open my store</a></Button>
             </div>
           ) : (

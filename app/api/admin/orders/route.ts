@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const { data, error } = await createAdminClient()
     .from("orders")
     .select(
-      "id,order_number,customer_name,room_number,payment_method,status,total,scheduled_for,created_at,order_items(title_snapshot,quantity,unit_price,extras)",
+      "id,order_number,customer_name,room_number,payment_method,payment_status,status,total,scheduled_for,created_at,order_items(title_snapshot,quantity,unit_price,extras)",
     )
     .eq("business_id", admin.businessId)
     .order("created_at", { ascending: false })

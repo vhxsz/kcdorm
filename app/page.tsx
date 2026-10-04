@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import {
   BarChart3,
   BellRing,
@@ -831,11 +832,14 @@ export function AdminPanel({
       room_number: string;
       total: number;
       status: string;
+      payment_status: "pending" | "confirmed";
       created_at: string;
       order_items?: Array<{ title_snapshot: string; quantity: number }>;
     }>
   >([]);
   const [createCategory, setCreateCategory] = useState("Pizzas");
+  const [createCostPrice, setCreateCostPrice] = useState("");
+  const [createSellingPrice, setCreateSellingPrice] = useState("");
   useEffect(() => {
     try {
       createSupabaseClient()
@@ -1199,7 +1203,7 @@ export function AdminPanel({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Purchase cost (CAD)</Label>
-                    <Input required name="cost_price" type="number" min="0" step="0.01" placeholder="6.00" />
+                    <Input required name="cost_price" type="number" min="0" step="0.01" placeholder="6.00" value={createCostPrice} onChange={(event) => setCreateCostPrice(event.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label>Selling price (CAD)</Label>
@@ -1209,8 +1213,11 @@ export function AdminPanel({
                       type="number"
                       step="0.01"
                       placeholder="18.00"
+                      value={createSellingPrice}
+                      onChange={(event) => setCreateSellingPrice(event.target.value)}
                     />
                   </div>
+                  <MarginPreview cost={Number(createCostPrice)} price={Number(createSellingPrice)} />
                   <div className="space-y-2">
                     <Label>Stock</Label>
                     <Input
@@ -1288,9 +1295,9 @@ export function AdminPanel({
         />
         <Stat
           icon={<BarChart3 />}
-          label="Sales today"
-          value={`$${orders.reduce((sum, order) => sum + Number(order.total), 0).toFixed(2)}`}
-          detail="Recorded sales"
+          label="Pending payments"
+          value={String(orders.filter((order) => order.payment_status === "pending").length)}
+          detail="Confirm them in Finance"
           color="bg-[#fff6cd] text-[#8a6c00]"
         />
         <Stat
@@ -1313,7 +1320,7 @@ export function AdminPanel({
             Telegram
           </TabsTrigger>
           <TabsTrigger value="finance" className="rounded-full px-5">
-            Profit margin
+            Finance
           </TabsTrigger>
         </TabsList>
         <TabsContent value="orders">
@@ -1350,7 +1357,7 @@ export function AdminPanel({
               <option value="etransfer">Interac e-Transfer</option>
             </select>
             <Button type="submit" className="bg-[#2457ff]">
-              Record sale
+              Create order
             </Button>
           </form>
           <div className="overflow-hidden rounded-[26px] border bg-white">
@@ -1381,9 +1388,9 @@ export function AdminPanel({
                   <span
                     className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${i === 2 ? "bg-[#eaf8ed] text-[#27803c]" : i === 1 ? "bg-[#fff6cd] text-[#8a6c00]" : "bg-[#edf1ff] text-[#2457ff]"}`}
                   >
-                    {order.status}
+                    {order.payment_status === "confirmed" ? "Paid" : "Awaiting payment"}
                   </span>
-                  <Button
+                  {order.payment_status !== "confirmed" && <Button
                     type="button"
                     onClick={() => deleteOrder(order.id)}
                     variant="outline"
@@ -1391,7 +1398,7 @@ export function AdminPanel({
                     className="text-red-600"
                   >
                     Delete
-                  </Button>
+                  </Button>}
                 </div>
               ))
             )}
@@ -1510,12 +1517,13 @@ export function AdminPanel({
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Purchase cost (CAD)</Label>
-                      <Input required name="cost_price" type="number" min="0" step="0.01" defaultValue={editingItem.cost_price || 0} />
+                      <Input required name="cost_price" type="number" min="0" step="0.01" value={editingItem.cost_price ?? 0} onChange={(event) => setEditingItem({ ...editingItem, cost_price: Number(event.target.value) })} />
                     </div>
                     <div className="space-y-2">
                       <Label>Selling price (CAD)</Label>
-                      <Input required name="price" type="number" step="0.01" defaultValue={editingItem.price} />
+                      <Input required name="price" type="number" step="0.01" value={editingItem.price} onChange={(event) => setEditingItem({ ...editingItem, price: Number(event.target.value) })} />
                     </div>
+                    <MarginPreview cost={Number(editingItem.cost_price || 0)} price={Number(editingItem.price)} />
                     <div className="space-y-2">
                       <Label>Stock</Label>
                       <Input required name="stock" type="number" defaultValue={editingItem.stock} />
@@ -1592,6 +1600,17 @@ type FinanceData = {
   accounts: Array<{ id: string; name: string; type: "bank" | "cash" }>;
 };
 
+function MarginPreview({ cost, price }: { cost: number; price: number }) {
+  const profit = price - cost;
+  const margin = price > 0 ? (profit / price) * 100 : 0;
+  return (
+    <div className="col-span-2 rounded-2xl bg-[#edf1ff] px-4 py-3 text-sm font-semibold text-[#172039]">
+      Estimated profit: <b>${profit.toFixed(2)}</b> per unit · Margin: <b>{margin.toFixed(1)}%</b>
+      <p className="mt-1 text-xs font-normal text-[#6d7893]">Based on the purchase cost and selling price, before other operating expenses.</p>
+    </div>
+  );
+}
+
 function FinanceDashboard() {
   const [days, setDays] = useState("30");
   const [data, setData] = useState<FinanceData | null>(null);
@@ -1606,7 +1625,26 @@ function FinanceDashboard() {
     const payload = (await response.json()) as FinanceData & { error?: string };
     if (response.ok) setData(payload); else setMessage(payload.error || "Finance data could not be loaded.");
   }
-  useEffect(() => { void load(); }, [days]);
+  useEffect(() => {
+    let active = true;
+    async function loadSelectedPeriod() {
+      try {
+        const { data: sessionData } = await createSupabaseClient().auth.getSession();
+        if (!sessionData.session) throw new Error("Your session has expired.");
+        const response = await fetch(`/api/admin/finance?days=${days}`, {
+          headers: { authorization: `Bearer ${sessionData.session.access_token}` },
+        });
+        const payload = (await response.json()) as FinanceData & { error?: string };
+        if (!active) return;
+        if (response.ok) setData(payload);
+        else setMessage(payload.error || "Finance data could not be loaded.");
+      } catch (error) {
+        if (active) setMessage(error instanceof Error ? error.message : "Finance data could not be loaded.");
+      }
+    }
+    void loadSelectedPeriod();
+    return () => { active = false; };
+  }, [days]);
   async function addAccount(form: FormData) {
     setMessage("Saving account...");
     const response = await authorizedFetch("/api/admin/finance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: form.get("name"), type: form.get("type") }) });
@@ -1685,10 +1723,10 @@ function LandingPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" className="rounded-full">
-              <a href="/signin">Sign in</a>
+              <Link href="/signin">Sign in</Link>
             </Button>
             <Button asChild className="rounded-full bg-[#2457ff] px-5">
-              <a href="/signup">Create a business</a>
+              <Link href="/signup">Create a business</Link>
             </Button>
           </div>
         </div>
@@ -1706,10 +1744,10 @@ function LandingPage() {
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <Button asChild className="h-13 rounded-full bg-[#2457ff] px-7 text-base font-bold">
-              <a href="/signup">Register my business</a>
+              <Link href="/signup">Register my business</Link>
             </Button>
             <Button asChild variant="outline" className="h-13 rounded-full px-7 text-base font-bold">
-              <a href="/signin">Open my store</a>
+              <Link href="/signin">Open my store</Link>
             </Button>
           </div>
           <p className="mt-5 text-sm text-[#6d7893]">

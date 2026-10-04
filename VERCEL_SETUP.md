@@ -6,10 +6,16 @@
 4. Run `supabase/migrations/20261002000000_multi_business.sql`.
 5. Run `supabase/migrations/20261003000000_principal_business.sql` to assign
    the original administrator, products, and orders to `/main`.
-6. Add the variables listed in `.env.example` to Vercel. Generate a long,
+6. Run `supabase/migrations/20261003010000_product_measure.sql` to add product
+   units and variants.
+7. Run `supabase/migrations/20261004000000_finance.sql` to add product costs,
+   payment confirmations, and bank or cash accounts. Existing orders start as
+   pending; finance totals include them only after an administrator confirms
+   payment. Historical costs use current product costs as an estimate.
+8. Add the variables listed in `.env.example` to Vercel. Generate a long,
    random value for `ADMIN_REGISTRATION_CODE` and only share it with approved
    businesses.
-7. Deploy using the **Next.js** framework preset.
+9. Deploy using the **Next.js** framework preset.
 
 New businesses register at `/signup`; the admin panel is at `/admin`. Telegram
 credentials now belong to each business and are entered during registration.
