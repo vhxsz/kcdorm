@@ -33,6 +33,62 @@ insert into public.bank_accounts (business_id, name, type)
 select id, 'Cash', 'cash' from public.businesses
 where not exists (select 1 from public.bank_accounts where bank_accounts.business_id = businesses.id and type = 'cash');
 
+create or replace function private.create_default_cash_account() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  insert into public.bank_accounts (business_id, name, type)
+  values (new.id, 'Cash', 'cash');
+  return new;
+end $$;
+
+drop trigger if exists create_default_cash_account on public.businesses;
+create trigger create_default_cash_account after insert on public.businesses
+for each row execute function private.create_default_cash_account();
+
+create or replace function private.validate_order_payment() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_op = 'DELETE' then
+    if old.payment_status = 'confirmed' then
+      raise exception 'Confirmed payments cannot be deleted';
+    end if;
+    return old;
+  end if;
+  if tg_op = 'UPDATE' and old.payment_status = 'confirmed' and (
+    new.payment_status is distinct from old.payment_status or
+    new.confirmed_at is distinct from old.confirmed_at or
+    new.confirmed_by is distinct from old.confirmed_by or
+    new.bank_account_id is distinct from old.bank_account_id or
+    new.total is distinct from old.total or
+    new.cost_total is distinct from old.cost_total
+  ) then
+    raise exception 'Confirmed payment records cannot be changed';
+  end if;
+  if new.payment_status = 'confirmed' then
+    if new.confirmed_at is null or new.confirmed_by is null or new.bank_account_id is null then
+      raise exception 'Payment confirmation details are required';
+    end if;
+    if not exists (
+      select 1 from public.bank_accounts
+      where id = new.bank_account_id
+        and business_id = new.business_id
+        and active = true
+    ) then
+      raise exception 'Payment account does not belong to this business';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists validate_order_payment on public.orders;
+create trigger validate_order_payment before update or delete on public.orders
+for each row execute function private.validate_order_payment();
+
+drop policy if exists "business admins delete orders" on public.orders;
+create policy "business admins delete pending orders" on public.orders
+for delete to authenticated
+using (business_id = private.current_business_id() and payment_status = 'pending');
+
 create or replace function private.capture_item_cost() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin

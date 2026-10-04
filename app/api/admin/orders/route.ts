@@ -25,11 +25,28 @@ export async function DELETE(request: Request) {
   const id = new URL(request.url).searchParams.get("id");
   if (!id)
     return NextResponse.json({ error: "Missing sale ID" }, { status: 400 });
-  const { error } = await createAdminClient()
+  const supabase = createAdminClient();
+  const { data: sale, error: lookupError } = await supabase
+    .from("orders")
+    .select("payment_status")
+    .eq("id", id)
+    .eq("business_id", admin.businessId)
+    .maybeSingle();
+  if (lookupError)
+    return NextResponse.json({ error: lookupError.message }, { status: 500 });
+  if (!sale)
+    return NextResponse.json({ error: "Sale not found" }, { status: 404 });
+  if (sale.payment_status === "confirmed")
+    return NextResponse.json(
+      { error: "Confirmed payments cannot be deleted." },
+      { status: 409 },
+    );
+  const { error } = await supabase
     .from("orders")
     .delete()
     .eq("id", id)
-    .eq("business_id", admin.businessId);
+    .eq("business_id", admin.businessId)
+    .eq("payment_status", "pending");
   return error
     ? NextResponse.json({ error: error.message }, { status: 500 })
     : NextResponse.json({ deleted: true });

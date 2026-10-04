@@ -53,7 +53,7 @@ export async function GET(request: Request) {
     if (error?.message.includes("measure_") || error?.message.includes("variants") || error?.message.includes("cost_price")) {
       const legacy = await createAdminClient()
         .from("products")
-        .select("id,title,description,price,cost_price,stock,weight_grams,delivery_minutes,image_url,category,extras")
+        .select("id,title,description,price,stock,weight_grams,delivery_minutes,image_url,category,extras")
         .eq("business_id", business.id)
         .eq("active", true)
         .order("created_at");
