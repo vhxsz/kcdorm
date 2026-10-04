@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { createClient as createSupabaseClient } from "@/lib/supabase/browser";
 
 export type MenuItem = {
@@ -41,6 +42,7 @@ export type MenuItem = {
   title: string;
   description: string;
   price: number;
+  cost_price?: number;
   time: number;
   stock: number;
   weight_grams?: number | null;
@@ -833,8 +835,6 @@ export function AdminPanel({
       order_items?: Array<{ title_snapshot: string; quantity: number }>;
     }>
   >([]);
-  const [cost, setCost] = useState("");
-  const [sellingPrice, setSellingPrice] = useState("");
   const [createCategory, setCreateCategory] = useState("Pizzas");
   useEffect(() => {
     try {
@@ -893,6 +893,7 @@ export function AdminPanel({
           title: String(form.get("title")),
           description: String(form.get("description")),
           price: Number(form.get("price")),
+          cost_price: Number(form.get("cost_price") || 0),
           stock: Number(form.get("stock")),
           weight_grams: form.get("measure_unit") === "g" && form.get("measure_value")
             ? Number(form.get("measure_value"))
@@ -971,6 +972,7 @@ export function AdminPanel({
           title: String(form.get("title")),
           description: String(form.get("description")),
           price: Number(form.get("price")),
+          cost_price: Number(form.get("cost_price") || 0),
           stock: Number(form.get("stock")),
           weight_grams: form.get("measure_unit") === "g" && form.get("measure_value")
             ? Number(form.get("measure_value"))
@@ -1196,7 +1198,11 @@ export function AdminPanel({
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Price (CAD)</Label>
+                    <Label>Purchase cost (CAD)</Label>
+                    <Input required name="cost_price" type="number" min="0" step="0.01" placeholder="6.00" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Selling price (CAD)</Label>
                     <Input
                       required
                       name="price"
@@ -1500,7 +1506,11 @@ export function AdminPanel({
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Price (CAD)</Label>
+                      <Label>Purchase cost (CAD)</Label>
+                      <Input required name="cost_price" type="number" min="0" step="0.01" defaultValue={editingItem.cost_price || 0} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Selling price (CAD)</Label>
                       <Input required name="price" type="number" step="0.01" defaultValue={editingItem.price} />
                     </div>
                     <div className="space-y-2">
@@ -1565,61 +1575,71 @@ export function AdminPanel({
           </div>
         </TabsContent>
         <TabsContent value="finance">
-          <div className="grid gap-5 rounded-[26px] border bg-white p-7 md:grid-cols-2">
-            <div>
-              <h3 className="text-2xl font-black">Profit margin calculator</h3>
-              <p className="mt-2 text-[#6d7893]">
-                Compare your food cost with the selling price before publishing
-                an item.
-              </p>
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Product cost (CAD)</Label>
-                  <Input
-                    value={cost}
-                    onChange={(event) => setCost(event.target.value)}
-                    type="number"
-                    step="0.01"
-                    placeholder="8.00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Selling price (CAD)</Label>
-                  <Input
-                    value={sellingPrice}
-                    onChange={(event) => setSellingPrice(event.target.value)}
-                    type="number"
-                    step="0.01"
-                    placeholder="20.00"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="grid place-items-center rounded-3xl bg-[#172039] p-8 text-center text-white">
-              <div>
-                <p className="text-sm text-white/60">Gross profit margin</p>
-                <p className="mt-2 text-6xl font-black">
-                  {Number(sellingPrice) > 0
-                    ? (
-                        ((Number(sellingPrice) - Number(cost)) /
-                          Number(sellingPrice)) *
-                        100
-                      ).toFixed(1)
-                    : "0.0"}
-                  %
-                </p>
-                <p className="mt-3 text-white/70">
-                  Profit per item: $
-                  {Math.max(0, Number(sellingPrice) - Number(cost)).toFixed(2)}{" "}
-                  CAD
-                </p>
-              </div>
-            </div>
-          </div>
+          <FinanceDashboard />
         </TabsContent>
       </Tabs>
     </section>
   );
+}
+
+type FinanceData = {
+  summary: { revenue: number; costs: number; profit: number; margin: number; confirmed_sales: number };
+  daily: Array<{ date: string; revenue: number; profit: number }>;
+  pending: Array<{ id: string; order_number: number; customer_name: string; total: number; created_at: string }>;
+  accounts: Array<{ id: string; name: string; type: "bank" | "cash" }>;
+};
+
+function FinanceDashboard() {
+  const [days, setDays] = useState("30");
+  const [data, setData] = useState<FinanceData | null>(null);
+  const [message, setMessage] = useState("");
+  async function authorizedFetch(url: string, init?: RequestInit) {
+    const { data: sessionData } = await createSupabaseClient().auth.getSession();
+    if (!sessionData.session) throw new Error("Your session has expired.");
+    return fetch(url, { ...init, headers: { ...(init?.headers || {}), authorization: `Bearer ${sessionData.session.access_token}` } });
+  }
+  async function load() {
+    const response = await authorizedFetch(`/api/admin/finance?days=${days}`);
+    const payload = (await response.json()) as FinanceData & { error?: string };
+    if (response.ok) setData(payload); else setMessage(payload.error || "Finance data could not be loaded.");
+  }
+  useEffect(() => { void load(); }, [days]);
+  async function addAccount(form: FormData) {
+    setMessage("Saving account...");
+    const response = await authorizedFetch("/api/admin/finance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: form.get("name"), type: form.get("type") }) });
+    setMessage(response.ok ? "Account added." : "The account could not be added.");
+    if (response.ok) await load();
+  }
+  async function confirmPayment(orderId: string, accountId: string) {
+    if (!accountId) { setMessage("Select the account that received the payment."); return; }
+    const response = await authorizedFetch("/api/admin/finance", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ order_id: orderId, bank_account_id: accountId }) });
+    setMessage(response.ok ? "Payment confirmed and included in finance totals." : "Payment could not be confirmed.");
+    if (response.ok) await load();
+  }
+  if (!data) return <div className="rounded-[26px] border bg-white p-8">{message || "Loading finance dashboard..."}</div>;
+  const money = (value: number) => `$${Number(value).toFixed(2)}`;
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><h3 className="text-3xl font-black">Finance dashboard</h3><p className="text-sm text-[#6d7893]">Only administrator-confirmed payments are included.</p></div>
+        <select value={days} onChange={(event) => setDays(event.target.value)} className="h-11 rounded-xl border bg-white px-4"><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option></select>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[['Revenue', money(data.summary.revenue)], ['Total costs', money(data.summary.costs)], ['Profit', money(data.summary.profit)], ['Overall margin', `${data.summary.margin.toFixed(1)}%`]].map(([label, value]) => <div key={label} className="rounded-3xl border bg-white p-5"><p className="text-sm font-bold text-[#6d7893]">{label}</p><p className="mt-2 text-3xl font-black">{value}</p></div>)}
+      </div>
+      <div className="rounded-[26px] border bg-white p-6"><h4 className="mb-5 text-xl font-black">Revenue and profit</h4><div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.daily}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="date" tick={{ fontSize: 11 }} /><Tooltip formatter={(value) => money(Number(value))} /><Bar dataKey="revenue" fill="#2457ff" radius={[6,6,0,0]} /><Bar dataKey="profit" fill="#42b883" radius={[6,6,0,0]} /></BarChart></ResponsiveContainer></div></div>
+      <div className="grid gap-5 lg:grid-cols-[1.5fr_.8fr]">
+        <div className="rounded-[26px] border bg-white p-6"><h4 className="text-xl font-black">Payments awaiting confirmation</h4><div className="mt-4 space-y-3">{data.pending.length === 0 ? <p className="text-sm text-[#6d7893]">No pending payments.</p> : data.pending.map((order) => <PendingPayment key={order.id} order={order} accounts={data.accounts} onConfirm={confirmPayment} />)}</div></div>
+        <div className="rounded-[26px] border bg-white p-6"><h4 className="text-xl font-black">Payment accounts</h4><div className="my-4 space-y-2">{data.accounts.map((account) => <div key={account.id} className="rounded-xl bg-[#f3f6fb] px-4 py-3 text-sm font-bold">{account.name} · {account.type}</div>)}</div><form action={addAccount} className="space-y-3"><Input required name="name" placeholder="Partner bank account" /><select name="type" className="h-11 w-full rounded-xl border bg-white px-3"><option value="bank">Bank account</option><option value="cash">Cash</option></select><Button type="submit" className="w-full rounded-xl bg-[#172039]"><Plus className="size-4" /> Add account</Button></form></div>
+      </div>
+      {message && <p className="rounded-xl bg-[#edf1ff] p-4 text-sm font-bold text-[#2457ff]">{message}</p>}
+    </div>
+  );
+}
+
+function PendingPayment({ order, accounts, onConfirm }: { order: FinanceData["pending"][number]; accounts: FinanceData["accounts"]; onConfirm: (orderId: string, accountId: string) => void }) {
+  const [accountId, setAccountId] = useState("");
+  return <div className="flex flex-wrap items-center gap-3 rounded-2xl border p-4"><div className="min-w-44 flex-1"><b>#{order.order_number} · {order.customer_name}</b><p className="text-sm text-[#6d7893]">${Number(order.total).toFixed(2)} CAD</p></div><select value={accountId} onChange={(event) => setAccountId(event.target.value)} className="h-10 rounded-xl border bg-white px-3"><option value="">Select destination</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select><Button type="button" onClick={() => onConfirm(order.id, accountId)} className="rounded-xl bg-[#2457ff]">Confirm payment</Button></div>;
 }
 
 function Stat({

@@ -6,6 +6,7 @@ const productSchema = z.object({
   title: z.string().min(2).max(100),
   description: z.string().max(500),
   price: z.number().positive().max(10000),
+  cost_price: z.number().min(0).max(10000).default(0),
   stock: z.number().int().min(0).max(10000),
   weight_grams: z.number().int().positive().max(100000).optional().nullable(),
   measure_value: z.number().int().positive().max(100000).optional().nullable(),
@@ -43,20 +44,20 @@ export async function GET(request: Request) {
     let { data, error } = await createAdminClient()
       .from("products")
       .select(
-        "id,title,description,price,stock,weight_grams,measure_value,measure_unit,delivery_minutes,image_url,category,extras,variants",
+        "id,title,description,price,cost_price,stock,weight_grams,measure_value,measure_unit,delivery_minutes,image_url,category,extras,variants",
       )
       .eq("business_id", business.id)
       .eq("active", true)
       .order("created_at");
     // Keep the current menu online between deploy and the measure/variant migration.
-    if (error?.message.includes("measure_") || error?.message.includes("variants")) {
+    if (error?.message.includes("measure_") || error?.message.includes("variants") || error?.message.includes("cost_price")) {
       const legacy = await createAdminClient()
         .from("products")
-        .select("id,title,description,price,stock,weight_grams,delivery_minutes,image_url,category,extras")
+        .select("id,title,description,price,cost_price,stock,weight_grams,delivery_minutes,image_url,category,extras")
         .eq("business_id", business.id)
         .eq("active", true)
         .order("created_at");
-      data = legacy.data?.map((product) => ({ ...product, measure_value: product.weight_grams, measure_unit: "g", variants: [] })) ?? null;
+      data = legacy.data?.map((product) => ({ ...product, cost_price: 0, measure_value: product.weight_grams, measure_unit: "g", variants: [] })) ?? null;
       error = legacy.error;
     }
     if (error) throw error;
