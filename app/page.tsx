@@ -670,57 +670,30 @@ function Cart({
 }
 
 function CustomerSignIn({ businessSlug, businessName }: { businessSlug: string; businessName: string }) {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has("auth_error"))
       setMessage("Sign-in could not be completed. Please try again.");
   }, []);
-  async function emailAuth(form: FormData) {
-    setBusy(true);
-    setMessage("");
-    try {
-      const supabase = createSupabaseClient();
-      const email = String(form.get("email") || "").trim();
-      const password = String(form.get("password") || "");
-      const callback = `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/${businessSlug}`)}`;
-      const result = mode === "signup"
-        ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: callback } })
-        : await supabase.auth.signInWithPassword({ email, password });
-      if (result.error) throw result.error;
-      if (mode === "signup" && !result.data.session)
-        setMessage("Check your email to confirm your account, then sign in.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not sign in.");
-    } finally { setBusy(false); }
-  }
   async function googleAuth() {
+    setBusy(true);
     setMessage("");
     const { error } = await createSupabaseClient().auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/${businessSlug}`)}` },
     });
-    if (error) setMessage(error.message);
+    if (error) { setMessage(error.message); setBusy(false); }
   }
   return (
     <main className="grid min-h-screen place-items-center bg-[#f6f8fc] px-5 py-10 text-[#172039]">
       <div className="w-full max-w-md rounded-[30px] border border-[#dfe5f1] bg-white p-8 shadow-xl">
         <div className="mb-6 grid size-14 place-items-center rounded-2xl bg-[#2457ff] text-white"><Pizza /></div>
         <p className="text-sm font-bold uppercase tracking-widest text-[#2457ff]">{businessName || businessSlug}</p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight">{mode === "signup" ? "Create your customer account" : "Sign in to order"}</h1>
-        <p className="mt-2 text-sm text-[#6d7893]">Use your school email or any other email address. Your orders and delivery details stay with your account.</p>
-        <Button type="button" variant="outline" className="mt-7 h-12 w-full rounded-xl font-bold" onClick={() => void googleAuth()}>Continue with Google</Button>
-        <div className="my-5 text-center text-xs font-bold uppercase text-[#6d7893]">or continue with email</div>
-        <form action={emailAuth} className="space-y-4">
-          <div className="space-y-2"><Label htmlFor="customer-email">Email</Label><Input id="customer-email" name="email" type="email" autoComplete="email" required /></div>
-          <div className="space-y-2"><Label htmlFor="customer-password">Password</Label><Input id="customer-password" name="password" type="password" minLength={6} autoComplete={mode === "signup" ? "new-password" : "current-password"} required /></div>
-          {message && <p role="status" className="text-sm text-[#2457ff]">{message}</p>}
-          <Button disabled={busy} type="submit" className="h-12 w-full rounded-xl bg-[#2457ff] font-bold">{busy ? "Please wait..." : mode === "signup" ? "Create account" : "Sign in"}</Button>
-        </form>
-        <button type="button" className="mt-5 w-full text-center text-sm font-bold text-[#2457ff]" onClick={() => { setMode(mode === "signup" ? "signin" : "signup"); setMessage(""); }}>
-          {mode === "signup" ? "Already have an account? Sign in" : "New here? Create an account"}
-        </button>
+        <h1 className="mt-2 text-3xl font-black tracking-tight">Sign in to order</h1>
+        <p className="mt-2 text-sm text-[#6d7893]">Use your school or personal Google account. Your orders and delivery details stay with your account.</p>
+        <Button type="button" disabled={busy} className="mt-7 h-12 w-full rounded-xl bg-[#2457ff] font-bold" onClick={() => void googleAuth()}>{busy ? "Connecting to Google..." : "Continue with Google"}</Button>
+        {message && <p role="status" className="mt-4 text-sm text-red-600">{message}</p>}
         <p className="mt-6 text-center text-xs text-[#6d7893]">Business owner? <Link href="/signin" className="underline">Use the business sign-in</Link>.</p>
       </div>
     </main>
