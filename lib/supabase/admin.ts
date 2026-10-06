@@ -10,6 +10,13 @@ export function createAdminClient() {
   });
 }
 
+export async function requireUser(request: Request) {
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!token) return null;
+  const { data: { user }, error } = await createAdminClient().auth.getUser(token);
+  return error ? null : user;
+}
+
 export async function requireAdmin(request: Request) {
   const token = request.headers
     .get("authorization")

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, requireUser } from "@/lib/supabase/admin";
 import { z } from "zod";
 
 const orderSchema = z.object({
@@ -37,6 +37,9 @@ export async function POST(request: Request) {
         );
     if (!parsed.data.business_slug && !admin)
       return NextResponse.json({ error: "Business is required" }, { status: 400 });
+    const customer = parsed.data.business_slug ? await requireUser(request) : null;
+    if (parsed.data.business_slug && !customer)
+      return NextResponse.json({ error: "Sign in to place your order" }, { status: 401 });
     let businessQuery = supabase
       .from("businesses")
       .select("id,name,slug,telegram_bot_token,telegram_chat_id")
@@ -49,9 +52,24 @@ export async function POST(request: Request) {
     if (businessError) throw businessError;
     if (!business)
       return NextResponse.json({ error: "Business not found" }, { status: 404 });
-    const { data: order, error } = await supabase.rpc("place_order", {
-      payload: { ...parsed.data, business_id: business.id },
-    });
+    if (customer) {
+      const { error: profileError } = await supabase.from("customer_profiles").upsert({
+        business_id: business.id,
+        user_id: customer.id,
+        full_name: parsed.data.customer_name,
+        room_number: parsed.data.room_number,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "business_id,user_id" });
+      if (profileError) throw profileError;
+    }
+    const { data: order, error } = customer
+      ? await supabase.rpc("place_customer_order", {
+          payload: { ...parsed.data, business_id: business.id },
+          customer_id: customer.id,
+        })
+      : await supabase.rpc("place_order", {
+          payload: { ...parsed.data, business_id: business.id },
+        });
     if (error) throw error;
     // The principal business keeps using the Telegram credentials already
     // configured in Vercel. Other businesses use their own saved credentials.

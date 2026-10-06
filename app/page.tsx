@@ -7,6 +7,7 @@ import {
   BellRing,
   Clock3,
   ImagePlus,
+  LogOut,
   Minus,
   Package,
   Pizza,
@@ -15,7 +16,9 @@ import {
   ShoppingBag,
   Sparkles,
   Trash2,
+  UserRound,
 } from "lucide-react";
+import type { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -56,6 +59,7 @@ export type MenuItem = {
   extras?: { name: string; price: number }[];
   variants?: { name: string; price: number; measure_value?: number | null; measure_unit?: "g" | "ml" | null }[];
 };
+
 const demoProductImages: Record<string, string> = {
   "d0000000-0000-4000-8000-000000000001": "https://images.unsplash.com/photo-1579751626657-72bc17010498?auto=format&fit=crop&w=900&q=80",
   "d0000000-0000-4000-8000-000000000002": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=900&q=80",
@@ -164,6 +168,8 @@ export default function Home() {
     () => null,
   );
   const [businessName, setBusinessName] = useState("");
+  const [customer, setCustomer] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartExtras, setCartExtras] = useState<Record<string, string[]>>({});
   const [cartVariants, setCartVariants] = useState<Record<string, string>>({});
@@ -258,7 +264,22 @@ export default function Home() {
       .catch(() => undefined);
   }, [businessSlug]);
 
+  useEffect(() => {
+    if (!businessSlug) return;
+    const supabase = createSupabaseClient();
+    let active = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (active) { setCustomer(data.user); setAuthReady(true); }
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) { setCustomer(session?.user || null); setAuthReady(true); }
+    });
+    return () => { active = false; subscription.unsubscribe(); };
+  }, [businessSlug]);
+
   if (!businessSlug) return <LandingPage />;
+  if (!authReady) return <main className="grid min-h-screen place-items-center bg-[#f6f8fc] text-[#172039]">Loading your account...</main>;
+  if (!customer) return <CustomerSignIn businessSlug={businessSlug} businessName={businessName} />;
 
   return (
     <main className="min-h-screen bg-[#f6f8fc] text-[#172039]">
@@ -271,6 +292,8 @@ export default function Home() {
             <div className="font-black tracking-[-.04em]">{businessName || "LOADING MENU"}</div>
           </div>
           <div className="flex items-center gap-2">
+            <CustomerOrders businessSlug={businessSlug} />
+            <Button variant="ghost" aria-label="Sign out" className="h-11 rounded-full px-3 sm:px-4" onClick={() => void createSupabaseClient().auth.signOut()}><LogOut className="size-4" /><span className="hidden sm:inline">Sign out</span></Button>
             <Sheet>
               <SheetTrigger asChild>
                 <Button className="h-11 rounded-full bg-[#172039] px-5 text-white hover:bg-[#2457ff]">
@@ -646,6 +669,112 @@ function Cart({
   );
 }
 
+function CustomerSignIn({ businessSlug, businessName }: { businessSlug: string; businessName: string }) {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("auth_error"))
+      setMessage("Sign-in could not be completed. Please try again.");
+  }, []);
+  async function emailAuth(form: FormData) {
+    setBusy(true);
+    setMessage("");
+    try {
+      const supabase = createSupabaseClient();
+      const email = String(form.get("email") || "").trim();
+      const password = String(form.get("password") || "");
+      const callback = `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/${businessSlug}`)}`;
+      const result = mode === "signup"
+        ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: callback } })
+        : await supabase.auth.signInWithPassword({ email, password });
+      if (result.error) throw result.error;
+      if (mode === "signup" && !result.data.session)
+        setMessage("Check your email to confirm your account, then sign in.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not sign in.");
+    } finally { setBusy(false); }
+  }
+  async function googleAuth() {
+    setMessage("");
+    const { error } = await createSupabaseClient().auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/${businessSlug}`)}` },
+    });
+    if (error) setMessage(error.message);
+  }
+  return (
+    <main className="grid min-h-screen place-items-center bg-[#f6f8fc] px-5 py-10 text-[#172039]">
+      <div className="w-full max-w-md rounded-[30px] border border-[#dfe5f1] bg-white p-8 shadow-xl">
+        <div className="mb-6 grid size-14 place-items-center rounded-2xl bg-[#2457ff] text-white"><Pizza /></div>
+        <p className="text-sm font-bold uppercase tracking-widest text-[#2457ff]">{businessName || businessSlug}</p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight">{mode === "signup" ? "Create your customer account" : "Sign in to order"}</h1>
+        <p className="mt-2 text-sm text-[#6d7893]">Use your school email or any other email address. Your orders and delivery details stay with your account.</p>
+        <Button type="button" variant="outline" className="mt-7 h-12 w-full rounded-xl font-bold" onClick={() => void googleAuth()}>Continue with Google</Button>
+        <div className="my-5 text-center text-xs font-bold uppercase text-[#6d7893]">or continue with email</div>
+        <form action={emailAuth} className="space-y-4">
+          <div className="space-y-2"><Label htmlFor="customer-email">Email</Label><Input id="customer-email" name="email" type="email" autoComplete="email" required /></div>
+          <div className="space-y-2"><Label htmlFor="customer-password">Password</Label><Input id="customer-password" name="password" type="password" minLength={6} autoComplete={mode === "signup" ? "new-password" : "current-password"} required /></div>
+          {message && <p role="status" className="text-sm text-[#2457ff]">{message}</p>}
+          <Button disabled={busy} type="submit" className="h-12 w-full rounded-xl bg-[#2457ff] font-bold">{busy ? "Please wait..." : mode === "signup" ? "Create account" : "Sign in"}</Button>
+        </form>
+        <button type="button" className="mt-5 w-full text-center text-sm font-bold text-[#2457ff]" onClick={() => { setMode(mode === "signup" ? "signin" : "signup"); setMessage(""); }}>
+          {mode === "signup" ? "Already have an account? Sign in" : "New here? Create an account"}
+        </button>
+        <p className="mt-6 text-center text-xs text-[#6d7893]">Business owner? <Link href="/signin" className="underline">Use the business sign-in</Link>.</p>
+      </div>
+    </main>
+  );
+}
+
+type CustomerOrder = {
+  id: string; order_number: number; total: number; status: string;
+  payment_status: string; created_at: string;
+  order_items?: { title_snapshot: string; quantity: number }[];
+};
+
+function CustomerOrders({ businessSlug }: { businessSlug: string }) {
+  const [open, setOpen] = useState(false);
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [totalSpent, setTotalSpent] = useState(0);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    void (async () => {
+      try {
+        const { data } = await createSupabaseClient().auth.getSession();
+        if (!data.session) throw new Error("Sign in required");
+        const response = await fetch(`/api/customer/orders?business=${encodeURIComponent(businessSlug)}`, {
+          headers: { authorization: `Bearer ${data.session.access_token}` }, cache: "no-store",
+        });
+        const body = (await response.json()) as { error?: string; orders?: CustomerOrder[]; total_spent?: number };
+        if (!response.ok) throw new Error(body.error || "Could not load orders");
+        if (active) { setOrders(body.orders || []); setTotalSpent(Number(body.total_spent || 0)); setError(""); }
+      } catch (cause) { if (active) setError(cause instanceof Error ? cause.message : "Could not load orders"); }
+    })();
+    return () => { active = false; };
+  }, [open, businessSlug]);
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild><Button variant="outline" className="h-11 rounded-full px-4"><UserRound className="size-4" /><span className="hidden sm:inline">My orders</span></Button></DialogTrigger>
+      <DialogContent className="max-h-[90vh] overflow-auto rounded-[28px] sm:max-w-lg">
+        <DialogHeader><DialogTitle className="text-2xl font-black">My orders</DialogTitle></DialogHeader>
+        <div className="rounded-2xl bg-[#edf1ff] p-5"><p className="text-sm text-[#59647e]">Total spent on confirmed orders</p><p className="text-3xl font-black">${totalSpent.toFixed(2)} CAD</p></div>
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {!error && orders.length === 0 && <p className="py-5 text-center text-sm text-[#6d7893]">No orders yet.</p>}
+        <div className="space-y-3">
+          {orders.map((order) => <div key={order.id} className="rounded-2xl border border-[#dfe5f1] p-4">
+            <div className="flex justify-between gap-3"><div><b>Order #{order.order_number}</b><p className="text-xs text-[#6d7893]">{new Date(order.created_at).toLocaleString("en-CA")}</p></div><b>${Number(order.total).toFixed(2)}</b></div>
+            <p className="mt-2 text-xs font-bold text-[#2457ff]">{order.status} · Payment {order.payment_status}</p>
+            <p className="mt-2 text-sm text-[#59647e]">{(order.order_items || []).map((item) => `${item.quantity}× ${item.title_snapshot}`).join(", ")}</p>
+          </div>)}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function Checkout({
   businessSlug,
   items,
@@ -664,12 +793,34 @@ function Checkout({
   const [sent, setSent] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [error, setError] = useState("");
+  const [profile, setProfile] = useState<{ full_name: string; room_number: string } | null>(null);
+  const [profileReady, setProfileReady] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const { data } = await createSupabaseClient().auth.getSession();
+        if (!data.session) return;
+        const response = await fetch(`/api/customer/profile?business=${encodeURIComponent(businessSlug)}`, {
+          headers: { authorization: `Bearer ${data.session.access_token}` }, cache: "no-store",
+        });
+        if (!response.ok) return;
+        const body = (await response.json()) as { profile?: { full_name: string; room_number: string } | null };
+        if (active) setProfile(body.profile || null);
+      } catch { /* New customers can still enter delivery details at checkout. */ }
+      finally { if (active) setProfileReady(true); }
+    })();
+    return () => { active = false; };
+  }, [businessSlug]);
   async function submit(form: FormData) {
     setError("");
+    const { data: sessionData } = await createSupabaseClient().auth.getSession();
+    if (!sessionData.session) { setError("Please sign in again to place your order."); return; }
     const body = {
       business_slug: businessSlug,
-      customer_name: form.get("name"),
-      room_number: form.get("room"),
+      customer_name: profile && !editingDetails ? profile.full_name : form.get("name"),
+      room_number: profile && !editingDetails ? profile.room_number : form.get("room"),
       scheduled_for: null,
       payment_method: form.get("payment"),
       items: items
@@ -683,7 +834,7 @@ function Checkout({
     };
     const response = await fetch("/api/orders", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", authorization: `Bearer ${sessionData.session.access_token}` },
       body: JSON.stringify(body),
     });
     const data = (await response.json()) as {
@@ -695,6 +846,8 @@ function Checkout({
       return;
     }
     setOrderNumber(String(data.order_number));
+    setProfile({ full_name: String(body.customer_name), room_number: String(body.room_number) });
+    setEditingDetails(false);
     setSent(true);
   }
   return (
@@ -731,7 +884,11 @@ function Checkout({
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-5 pt-2">
-              <div className="grid grid-cols-2 gap-3">
+              {profile && !editingDetails ? <div className="rounded-2xl bg-[#f3f6fb] p-4">
+                <p className="text-sm font-bold">Delivery details</p>
+                <p className="mt-1 text-sm text-[#59647e]">{profile.full_name} · Room {profile.room_number}</p>
+                <button type="button" className="mt-2 text-sm font-bold text-[#2457ff]" onClick={() => setEditingDetails(true)}>Edit details</button>
+              </div> : <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="name">Your name</Label>
                   <Input
@@ -739,6 +896,7 @@ function Checkout({
                     name="name"
                     id="name"
                     placeholder="e.g. Alex"
+                    defaultValue={profile?.full_name || ""}
                   />
                 </div>
                 <div className="space-y-2">
@@ -748,9 +906,11 @@ function Checkout({
                     name="room"
                     id="room"
                     placeholder="e.g. 407"
+                    defaultValue={profile?.room_number || ""}
                   />
                 </div>
-              </div>
+              </div>}
+              {!profileReady && <p className="text-sm text-[#6d7893]">Loading saved delivery details...</p>}
               <div className="space-y-2">
                 <Label htmlFor="time">When would you like it?</Label>
                 <select
@@ -792,6 +952,7 @@ function Checkout({
               )}
               <Button
                 type="submit"
+                disabled={!profileReady}
                 className="h-13 rounded-2xl bg-[#2457ff] text-base font-bold"
               >
                 Place order
