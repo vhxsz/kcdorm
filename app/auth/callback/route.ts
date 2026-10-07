@@ -4,8 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const requestedPath = url.searchParams.get("next") || "/main";
-  const nextPath = /^\/[a-z0-9-]+$/.test(requestedPath) ? requestedPath : "/main";
+  const requestedPath = url.searchParams.get("next") || "/";
+  const nextPath = requestedPath === "/" || /^\/[a-z0-9-]+$/.test(requestedPath)
+    ? requestedPath
+    : "/";
   const destination = new URL(nextPath, url.origin);
   const response = NextResponse.redirect(destination);
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

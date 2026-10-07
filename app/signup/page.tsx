@@ -30,7 +30,7 @@ export default function SignupPage() {
   return (
     <main className="min-h-screen bg-[#f6f8fc] px-5 py-10 text-[#172039]">
       <div className="mx-auto max-w-2xl">
-        <Link href="/" className="mb-8 inline-flex items-center gap-2 text-sm font-bold">
+        <Link href="/business" className="mb-8 inline-flex items-center gap-2 text-sm font-bold">
           <ArrowLeft className="size-4" /> Back to homepage
         </Link>
         <form action={register} className="rounded-[32px] border bg-white p-7 shadow-xl md:p-10">

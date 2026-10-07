@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -158,15 +158,11 @@ function ExtraEditor({ name, initial = [] }: { name: string; initial?: NonNullab
   );
 }
 export default function Home() {
+  return <Storefront businessSlug="main" />;
+}
+
+export function Storefront({ businessSlug }: { businessSlug: string }) {
   const [items, setItems] = useState<MenuItem[]>([]);
-  const businessSlug = useSyncExternalStore(
-    () => () => undefined,
-    () => {
-      const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
-      return path || new URLSearchParams(window.location.search).get("business");
-    },
-    () => null,
-  );
   const [businessName, setBusinessName] = useState("");
   const [customer, setCustomer] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -283,7 +279,6 @@ export default function Home() {
     return () => { active = false; subscription.unsubscribe(); };
   }, [businessSlug]);
 
-  if (!businessSlug) return <LandingPage />;
   if (!authReady) return <main className="grid min-h-screen place-items-center bg-[#f6f8fc] text-[#172039]">Loading your account...</main>;
   if (!customer) return <CustomerSignIn businessSlug={businessSlug} businessName={businessName} />;
 
@@ -692,20 +687,55 @@ function CustomerSignIn({ businessSlug, businessName }: { businessSlug: string; 
     setMessage("");
     const { error } = await createSupabaseClient().auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/${businessSlug}`)}` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(businessSlug === "main" ? "/" : `/${businessSlug}`)}`,
+      },
     });
     if (error) { setMessage(error.message); setBusy(false); }
   }
   return (
-    <main className="grid min-h-screen place-items-center bg-[#f6f8fc] px-5 py-10 text-[#172039]">
-      <div className="w-full max-w-md rounded-[30px] border border-[#dfe5f1] bg-white p-8 shadow-xl">
-        <div className="mb-6 grid size-14 place-items-center rounded-2xl bg-[#2457ff] text-white"><Pizza /></div>
-        <p className="text-sm font-bold uppercase tracking-widest text-[#2457ff]">{businessName || businessSlug}</p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight">Sign in to order</h1>
-        <p className="mt-2 text-sm text-[#6d7893]">Use your school or personal Google account. Your orders and delivery details stay with your account.</p>
-        <Button type="button" disabled={busy} className="mt-7 h-12 w-full rounded-xl bg-[#2457ff] font-bold" onClick={() => void googleAuth()}>{busy ? "Connecting to Google..." : "Continue with Google"}</Button>
-        {message && <p role="status" className="mt-4 text-sm text-red-600">{message}</p>}
-        <p className="mt-6 text-center text-xs text-[#6d7893]">Business owner? <Link href="/signin" className="underline">Use the business sign-in</Link>.</p>
+    <main className="relative min-h-screen overflow-hidden bg-[#f7f8fc] text-[#111a32]">
+      <div className="absolute -left-28 -top-28 size-80 rounded-full bg-[#2457ff]/15 blur-3xl" />
+      <div className="absolute -bottom-36 -right-24 size-96 rounded-full bg-[#ffd84d]/25 blur-3xl" />
+      <div className="relative mx-auto grid min-h-screen max-w-7xl items-stretch lg:grid-cols-[1.08fr_.92fr] lg:p-5">
+        <section className="relative hidden overflow-hidden rounded-[34px] bg-[#132b88] p-12 text-white shadow-2xl lg:flex lg:flex-col lg:justify-between">
+          <img src="/menu-food.jpg" alt="Fresh food from Pizza Next Door" className="absolute inset-0 size-full object-cover opacity-25 mix-blend-luminosity" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#17358f]/95 via-[#17358f]/85 to-[#0d1c55]/95" />
+          <div className="relative flex items-center gap-3">
+            <div className="grid size-12 place-items-center rounded-2xl bg-[#ffd84d] text-[#142253]"><Pizza /></div>
+            <span className="text-lg font-black tracking-[-.04em]">PIZZA NEXT DOOR</span>
+          </div>
+          <div className="relative max-w-xl">
+            <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold backdrop-blur">Made nearby. Delivered fast.</span>
+            <h1 className="mt-6 text-6xl font-black leading-[.92] tracking-[-.065em]">Good food is right next door.</h1>
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-blue-100">Browse the live menu, order to your room, and keep every receipt in one place.</p>
+          </div>
+          <div className="relative grid grid-cols-3 gap-3 text-sm font-bold">
+            <span className="rounded-2xl bg-white/10 p-4 backdrop-blur">Live menu</span>
+            <span className="rounded-2xl bg-white/10 p-4 backdrop-blur">Saved room</span>
+            <span className="rounded-2xl bg-white/10 p-4 backdrop-blur">Order history</span>
+          </div>
+        </section>
+        <section className="grid min-h-screen place-items-center px-5 py-10 sm:px-10 lg:min-h-0 lg:px-16">
+          <div className="w-full max-w-md">
+            <div className="mb-10 flex items-center gap-3 lg:hidden">
+              <div className="grid size-11 place-items-center rounded-2xl bg-[#2457ff] text-white shadow-lg"><Pizza className="size-5" /></div>
+              <span className="font-black tracking-[-.04em]">PIZZA NEXT DOOR</span>
+            </div>
+            <div className="rounded-[30px] border border-[#dfe5f1] bg-white p-7 shadow-[0_24px_80px_rgba(24,37,78,.12)] sm:p-9">
+              <p className="text-xs font-black uppercase tracking-[.2em] text-[#2457ff]">{businessName || "Pizza Next Door"}</p>
+              <h2 className="mt-3 text-4xl font-black leading-none tracking-[-.055em]">Sign in and start your order.</h2>
+              <p className="mt-4 leading-relaxed text-[#6d7893]">Use any Google account. Your name, room and order history will be saved securely for next time.</p>
+              <Button type="button" disabled={busy} variant="outline" className="mt-8 h-14 w-full rounded-2xl border-[#ccd5e8] bg-white text-base font-black shadow-sm hover:bg-[#f5f7ff]" onClick={() => void googleAuth()}>
+                <span className="grid size-7 place-items-center rounded-full bg-white text-lg font-black text-[#4285f4] shadow-sm">G</span>
+                {busy ? "Connecting to Google..." : "Continue with Google"}
+              </Button>
+              {message && <p role="status" className="mt-4 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-600">{message}</p>}
+              <p className="mt-6 text-center text-xs leading-relaxed text-[#7a849c]">By continuing, you agree to use your account information only for ordering and delivery.</p>
+            </div>
+            <p className="mt-6 text-center text-sm text-[#6d7893]">Running a business? <Link href="/business" className="font-bold text-[#2457ff] hover:underline">Open the business portal</Link></p>
+          </div>
+        </section>
       </div>
     </main>
   );
@@ -1931,7 +1961,7 @@ function Stat({
   );
 }
 
-function LandingPage() {
+export function BusinessLandingPage() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#f6f8fc] text-[#172039]">
       <header className="border-b border-[#dfe5f1] bg-white/90 backdrop-blur-xl">

@@ -42,7 +42,7 @@ export default function SignInPage() {
   return (
     <main className="grid min-h-screen place-items-center bg-[#f6f8fc] px-5 py-10 text-[#172039]">
       <div className="w-full max-w-md">
-        <Link href="/" className="mb-8 inline-flex items-center gap-2 text-sm font-bold">
+        <Link href="/business" className="mb-8 inline-flex items-center gap-2 text-sm font-bold">
           <ArrowLeft className="size-4" /> Back to homepage
         </Link>
         <form action={signIn} className="rounded-[30px] border bg-white p-8 shadow-xl">
