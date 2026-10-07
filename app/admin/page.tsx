@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminPanel, type MenuItem } from "../page";
 import { createClient as createSupabaseClient } from "@/lib/supabase/browser";
@@ -8,41 +8,65 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/browser";
 export default function AdminPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [configurationMissing, setConfigurationMissing] = useState(false);
+  const [productsError, setProductsError] = useState("");
 
-  useEffect(() => {
+  const loadProducts = useCallback(async () => {
     let supabase;
     try {
       supabase = createSupabaseClient();
     } catch {
-      queueMicrotask(() => setConfigurationMissing(true));
-      return;
+      setConfigurationMissing(true);
+      return false;
     }
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) return;
-      fetch("/api/products", {
-        headers: { authorization: `Bearer ${data.session.access_token}` },
-      })
-      .then(async (response) =>
-        response.ok
-          ? ((await response.json()) as { products?: unknown })
-          : { products: [] },
-      )
-      .then((payload) => {
-        const products = payload.products;
-        setItems(
-          (Array.isArray(products) ? products : []).map(
-            (product: Record<string, unknown>, index: number) => ({
-              ...(product as unknown as MenuItem),
-              price: Number(product.price),
-              time: Number(product.delivery_minutes),
-              pos: ["20% 22%", "72% 78%", "84% 18%"][index % 3],
-              tag: String(product.category || "Available"),
-            }),
-          ),
-        );
-      });
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      setItems([]);
+      setProductsError("");
+      return false;
+    }
+    const response = await fetch("/api/products", {
+      headers: { authorization: `Bearer ${data.session.access_token}` },
+      cache: "no-store",
     });
+    const payload = (await response.json().catch(() => ({}))) as {
+      products?: unknown;
+      error?: string;
+    };
+    if (!response.ok) {
+      setItems([]);
+      setProductsError(
+        response.status === 401
+          ? "This Google account is not an administrator. Sign in with the business administrator account."
+          : payload.error || "Menu and stock could not be loaded.",
+      );
+      return false;
+    }
+    const products = payload.products;
+    setItems(
+      (Array.isArray(products) ? products : []).map(
+        (product: Record<string, unknown>, index: number) => ({
+          ...(product as unknown as MenuItem),
+          price: Number(product.price),
+          time: Number(product.delivery_minutes),
+          pos: ["20% 22%", "72% 78%", "84% 18%"][index % 3],
+          tag: String(product.category || "Available"),
+        }),
+      ),
+    );
+    setProductsError("");
+    return true;
   }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadProducts());
+    const interval = window.setInterval(() => void loadProducts(), 15000);
+    const refresh = () => void loadProducts();
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [loadProducts]);
 
   if (configurationMissing)
     return (
@@ -77,6 +101,8 @@ export default function AdminPage() {
         onProductDeleted={(id) =>
           setItems((current) => current.filter((item) => item.id !== id))
         }
+        onRefreshProducts={loadProducts}
+        productsError={productsError}
         onBack={() => window.location.assign("/")}
       />
     </main>

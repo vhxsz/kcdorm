@@ -954,16 +954,22 @@ export function AdminPanel({
   onProductAdded,
   onProductUpdated,
   onProductDeleted,
+  onRefreshProducts,
+  productsError,
   onBack,
 }: {
   items: MenuItem[];
   onProductAdded: (item: MenuItem) => void;
   onProductUpdated: (item: MenuItem) => void;
   onProductDeleted: (id: string) => void;
+  onRefreshProducts: () => Promise<boolean>;
+  productsError: string;
   onBack: () => void;
 }) {
   const [authenticated, setAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [ordersError, setOrdersError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const [createImagePreview, setCreateImagePreview] = useState("");
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -986,24 +992,46 @@ export function AdminPanel({
   const [createCostPrice, setCreateCostPrice] = useState("");
   const [createSellingPrice, setCreateSellingPrice] = useState("");
   useEffect(() => {
-    try {
-      createSupabaseClient()
-        .auth.getUser()
-        .then(({ data }) => setAuthenticated(Boolean(data.user)));
-    } catch {}
+    void (async () => {
+      try {
+        const { data } = await createSupabaseClient().auth.getSession();
+        if (!data.session) {
+          setAuthenticated(false);
+          return;
+        }
+        const response = await fetch("/api/account/business", {
+          headers: { authorization: `Bearer ${data.session.access_token}` },
+          cache: "no-store",
+        });
+        setAuthenticated(response.ok);
+        if (!response.ok)
+          setLoginError("Sign in with the business administrator email and password.");
+      } finally {
+        setAuthChecked(true);
+      }
+    })();
   }, []);
   async function login(form: FormData) {
     setLoginError("");
     try {
-      const { error } = await createSupabaseClient().auth.signInWithPassword({
+      const { data, error } = await createSupabaseClient().auth.signInWithPassword({
         email: String(form.get("email")),
         password: String(form.get("password")),
       });
-      if (error) throw error;
+      if (error || !data.session) throw error || new Error("Invalid email or password");
+      const accessResponse = await fetch("/api/account/business", {
+        headers: { authorization: `Bearer ${data.session.access_token}` },
+        cache: "no-store",
+      });
+      if (!accessResponse.ok) {
+        await createSupabaseClient().auth.signOut();
+        throw new Error("This account is not linked to a business administrator.");
+      }
       setAuthenticated(true);
-      window.location.reload();
-    } catch {
-      setLoginError("Invalid email or password");
+      await Promise.all([onRefreshProducts(), loadOrders()]);
+    } catch (error) {
+      setAuthenticated(false);
+      setLoginError(error instanceof Error ? error.message : "Invalid email or password");
     }
   }
   async function saveProduct(form: FormData) {
@@ -1081,7 +1109,30 @@ export function AdminPanel({
     const response = await fetch("/api/admin/orders", {
       headers: { authorization: `Bearer ${data.session.access_token}` },
     });
-    if (response.ok) setOrders(await response.json());
+    const payload = await response.json().catch(() => null) as
+      | Array<{
+          id: string;
+          order_number: number;
+          customer_name: string;
+          room_number: string;
+          total: number;
+          status: string;
+          payment_status: "pending" | "confirmed";
+          created_at: string;
+          order_items?: Array<{ title_snapshot: string; quantity: number }>;
+        }>
+      | { error?: string }
+      | null;
+    if (response.ok) {
+      setOrders(Array.isArray(payload) ? payload : []);
+      setOrdersError("");
+    } else {
+      setOrdersError(
+        response.status === 401
+          ? "Administrator access is required to view orders."
+          : String((payload && !Array.isArray(payload) ? payload.error : "") || "Orders could not be loaded."),
+      );
+    }
   }
   async function updateProduct(form: FormData) {
     if (!editingItem) return;
@@ -1196,13 +1247,27 @@ export function AdminPanel({
         items: [{ product_id: productId, quantity, extras: [] }],
       }),
     });
-    if (response.ok) await loadOrders();
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    if (response.ok) {
+      setOrdersError("");
+      await Promise.all([loadOrders(), onRefreshProducts()]);
+    } else {
+      setOrdersError(String(payload.error || "The order could not be created."));
+    }
   }
   useEffect(() => {
-    // Loading is intentionally tied to the transition from signed-out to signed-in.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (authenticated) void loadOrders();
+    if (!authenticated) return;
+    void loadOrders();
+    const interval = window.setInterval(() => void loadOrders(), 15000);
+    const refresh = () => void loadOrders();
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+    };
   }, [authenticated]);
+  if (!authChecked)
+    return <section className="grid min-h-[75vh] place-items-center text-[#6d7893]">Checking administrator access...</section>;
   if (!authenticated)
     return (
       <section className="mx-auto grid min-h-[75vh] max-w-md place-items-center px-5">
@@ -1259,6 +1324,11 @@ export function AdminPanel({
     );
   return (
     <section className="mx-auto max-w-7xl px-5 pb-24 pt-8 lg:px-8">
+      {(productsError || ordersError) && (
+        <div role="alert" className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-bold text-red-700">
+          {productsError || ordersError}
+        </div>
+      )}
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-bold uppercase tracking-[.16em] text-[#2457ff]">
@@ -1448,7 +1518,7 @@ export function AdminPanel({
         <Stat
           icon={<Package />}
           label="Low stock"
-          value="2 items"
+          value={`${items.filter((item) => item.stock <= 3).length} items`}
           detail="need attention"
           color="bg-[#fff0f1] text-[#d73546]"
         />
@@ -1506,7 +1576,9 @@ export function AdminPanel({
             </Button>
           </form>
           <div className="overflow-hidden rounded-[26px] border bg-white">
-            {orders.length === 0 ? (
+            {ordersError ? (
+              <p className="p-8 text-center font-bold text-red-600">{ordersError}</p>
+            ) : orders.length === 0 ? (
               <p className="p-8 text-center text-[#6d7893]">
                 No sales recorded yet.
               </p>
@@ -1551,7 +1623,11 @@ export function AdminPanel({
         </TabsContent>
         <TabsContent value="menu">
           <div className="overflow-hidden rounded-[26px] border bg-white">
-            {items.map((item) => (
+            {productsError ? (
+              <p className="p-8 text-center font-bold text-red-600">{productsError}</p>
+            ) : items.length === 0 ? (
+              <p className="p-8 text-center text-[#6d7893]">No menu items found for this business.</p>
+            ) : items.map((item) => (
               <div
                 key={item.id}
                 className="flex items-center gap-4 border-b p-4 last:border-0"
