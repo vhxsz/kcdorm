@@ -166,6 +166,7 @@ export function Storefront({ businessSlug }: { businessSlug: string }) {
   const [businessName, setBusinessName] = useState("");
   const [customer, setCustomer] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartExtras, setCartExtras] = useState<Record<string, string[]>>({});
   const [cartVariants, setCartVariants] = useState<Record<string, string>>({});
@@ -295,7 +296,7 @@ export function Storefront({ businessSlug }: { businessSlug: string }) {
           <div className="flex items-center gap-2">
             <CustomerOrders businessSlug={businessSlug} />
             <Button variant="ghost" aria-label="Sign out" className="h-11 rounded-full px-3 sm:px-4" onClick={() => void createSupabaseClient().auth.signOut()}><LogOut className="size-4" /><span className="hidden sm:inline">Sign out</span></Button>
-            <Sheet>
+            <Sheet open={cartOpen} onOpenChange={setCartOpen}>
               <SheetTrigger asChild>
                 <Button className="h-11 rounded-full bg-[#172039] px-5 text-white hover:bg-[#2457ff]">
                   <ShoppingBag className="size-4" /> Cart{" "}
@@ -560,12 +561,17 @@ export function Storefront({ businessSlug }: { businessSlug: string }) {
         </DialogContent>
       </Dialog>
       {count > 0 && (
-        <div className="fixed bottom-5 left-1/2 z-30 flex w-[calc(100%-40px)] max-w-md -translate-x-1/2 items-center justify-between rounded-2xl bg-[#172039] px-5 py-4 text-white shadow-2xl md:hidden">
+        <button
+          type="button"
+          aria-label={`Open cart with ${count} ${count === 1 ? "item" : "items"}`}
+          onClick={() => setCartOpen(true)}
+          className="fixed bottom-5 left-1/2 z-30 flex w-[calc(100%-40px)] max-w-md -translate-x-1/2 items-center justify-between rounded-2xl bg-[#172039] px-5 py-4 text-white shadow-2xl transition hover:bg-[#2457ff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2457ff]/30 md:hidden"
+        >
           <span className="font-bold">
             Cart · {count} {count === 1 ? "item" : "items"}
           </span>
           <b>${total.toFixed(2)}</b>
-        </div>
+        </button>
       )}
     </main>
   );
