@@ -189,8 +189,14 @@ export default function Home() {
       }, 0),
     [cart, cartExtras, cartVariants, items],
   );
-  const add = (id: string) =>
-    setCart((current) => ({ ...current, [id]: (current[id] || 0) + 1 }));
+  const add = (id: string) => {
+    const availableStock = items.find((item) => item.id === id)?.stock ?? 0;
+    if (availableStock < 1) return;
+    setCart((current) => ({
+      ...current,
+      [id]: Math.min((current[id] || 0) + 1, availableStock),
+    }));
+  };
   const remove = (id: string) =>
     setCart((current) => ({
       ...current,
@@ -388,10 +394,11 @@ export default function Home() {
               <article
                 key={item.id}
                 onClick={() => {
+                  if (item.stock < 1) return;
                   setSelectedProduct(item);
                   setSelectedExtras(cartExtras[item.id] || []);
                 }}
-                className="group overflow-hidden rounded-[26px] border border-[#dfe5f1] bg-white shadow-[0_8px_30px_rgba(25,39,78,.05)] transition hover:-translate-y-1 hover:shadow-[0_18px_50px_rgba(25,39,78,.10)]"
+                className={`group overflow-hidden rounded-[26px] border border-[#dfe5f1] bg-white shadow-[0_8px_30px_rgba(25,39,78,.05)] transition ${item.stock > 0 ? "hover:-translate-y-1 hover:shadow-[0_18px_50px_rgba(25,39,78,.10)]" : "opacity-70"}`}
               >
                 <div className="relative h-56 overflow-hidden">
                   <img
@@ -404,7 +411,7 @@ export default function Home() {
                     {item.tag}
                   </span>
                   <span className="absolute bottom-4 right-4 rounded-full bg-[#172039]/90 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
-                    {item.stock} available
+                    {item.stock > 0 ? `${item.stock} available` : "Sold out"}
                   </span>
                 </div>
                 <div className="p-5">
@@ -450,6 +457,7 @@ export default function Home() {
                       </div>
                     ) : (
                       <Button
+                        disabled={item.stock < 1}
                         onClick={(event) => {
                           event.stopPropagation();
                           if (item.extras?.length || item.variants?.length) {
@@ -458,10 +466,12 @@ export default function Home() {
                             setSelectedVariant(item.variants?.[0]?.name || "");
                           } else add(item.id);
                         }}
-                        className="size-11 rounded-full bg-[#2457ff] p-0 hover:bg-[#1744d4]"
-                        aria-label={`Add ${item.title}`}
+                        className={item.stock > 0
+                          ? "size-11 rounded-full bg-[#2457ff] p-0 hover:bg-[#1744d4]"
+                          : "h-11 rounded-full px-4 text-xs font-black"}
+                        aria-label={item.stock > 0 ? `Add ${item.title}` : `${item.title} is sold out`}
                       >
-                        <Plus className="size-5" />
+                        {item.stock > 0 ? <Plus className="size-5" /> : <span className="px-2 text-xs font-black">SOLD OUT</span>}
                       </Button>
                     )}
                   </div>
@@ -526,6 +536,7 @@ export default function Home() {
                 )}
               </div>
               <Button
+                disabled={selectedProduct.stock < 1}
                 className="h-12 w-full rounded-2xl bg-[#2457ff] font-bold"
                 onClick={() => {
                   setCartExtras((current) => ({
@@ -670,12 +681,12 @@ function Cart({
 }
 
 function CustomerSignIn({ businessSlug, businessName }: { businessSlug: string; businessName: string }) {
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).has("auth_error")
+      ? "Sign-in could not be completed. Please try again."
+      : "",
+  );
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).has("auth_error"))
-      setMessage("Sign-in could not be completed. Please try again.");
-  }, []);
   async function googleAuth() {
     setBusy(true);
     setMessage("");

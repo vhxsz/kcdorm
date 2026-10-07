@@ -116,6 +116,23 @@ export async function POST(request: Request) {
     return NextResponse.json(order, { status: 201 });
   } catch (error) {
     console.error("order_create_failed", error);
+    const message = error instanceof Error
+      ? error.message
+      : typeof error === "object" && error && "message" in error
+        ? String(error.message)
+        : "";
+    if (message.includes("Item unavailable")) {
+      return NextResponse.json(
+        { error: "One or more items are sold out or no longer have enough stock. Please update your cart." },
+        { status: 409 },
+      );
+    }
+    if (message.includes("Invalid variant")) {
+      return NextResponse.json(
+        { error: "A selected size or variant is no longer available. Please update your cart." },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
       { error: "We could not place your order. Please try again." },
       { status: 500 },
