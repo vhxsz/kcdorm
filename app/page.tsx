@@ -167,6 +167,7 @@ export function Storefront({ businessSlug }: { businessSlug: string }) {
   const [customer, setCustomer] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [loadedCartKey, setLoadedCartKey] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartExtras, setCartExtras] = useState<Record<string, string[]>>({});
   const [cartVariants, setCartVariants] = useState<Record<string, string>>({});
@@ -280,6 +281,45 @@ export function Storefront({ businessSlug }: { businessSlug: string }) {
     return () => { active = false; subscription.unsubscribe(); };
   }, [businessSlug]);
 
+  useEffect(() => {
+    if (!customer) return;
+    const storageKey = `pizza-cart:${businessSlug}:${customer.id}`;
+    let storedCart: Record<string, number> = {};
+    let storedExtras: Record<string, string[]> = {};
+    let storedVariants: Record<string, string> = {};
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(storageKey) || "null") as {
+        cart?: Record<string, number>;
+        extras?: Record<string, string[]>;
+        variants?: Record<string, string>;
+      } | null;
+      storedCart = stored?.cart && typeof stored.cart === "object" ? stored.cart : {};
+      storedExtras = stored?.extras && typeof stored.extras === "object" ? stored.extras : {};
+      storedVariants = stored?.variants && typeof stored.variants === "object" ? stored.variants : {};
+    } catch { /* Ignore malformed local cart data. */ }
+    const restore = window.setTimeout(() => {
+      setCart(storedCart);
+      setCartExtras(storedExtras);
+      setCartVariants(storedVariants);
+      setLoadedCartKey(storageKey);
+    }, 0);
+    return () => window.clearTimeout(restore);
+  }, [businessSlug, customer]);
+
+  useEffect(() => {
+    if (!loadedCartKey) return;
+    window.localStorage.setItem(
+      loadedCartKey,
+      JSON.stringify({ cart, extras: cartExtras, variants: cartVariants }),
+    );
+  }, [cart, cartExtras, cartVariants, loadedCartKey]);
+
+  const clearCart = () => {
+    setCart({});
+    setCartExtras({});
+    setCartVariants({});
+  };
+
   if (!authReady) return <main className="grid min-h-screen place-items-center bg-[#f6f8fc] text-[#172039]">Loading your account...</main>;
   if (!customer) return <CustomerSignIn businessSlug={businessSlug} businessName={businessName} />;
 
@@ -315,6 +355,7 @@ export function Storefront({ businessSlug }: { businessSlug: string }) {
                   cartVariants={cartVariants}
                   add={add}
                   remove={remove}
+                  clearCart={clearCart}
                 />
               </SheetContent>
             </Sheet>
@@ -586,6 +627,7 @@ function Cart({
   cartVariants,
   add,
   remove,
+  clearCart,
 }: {
   businessSlug: string;
   items: MenuItem[];
@@ -595,6 +637,7 @@ function Cart({
   cartVariants: Record<string, string>;
   add: (id: string) => void;
   remove: (id: string) => void;
+  clearCart: () => void;
 }) {
   return (
     <div className="flex h-full flex-col bg-white">
@@ -674,6 +717,7 @@ function Cart({
             cartExtras={cartExtras}
             cartVariants={cartVariants}
             total={total}
+            onOrderPlaced={clearCart}
           />
         </div>
       )}
@@ -802,6 +846,7 @@ function Checkout({
   cartExtras,
   cartVariants,
   total,
+  onOrderPlaced,
 }: {
   businessSlug: string;
   items: MenuItem[];
@@ -809,6 +854,7 @@ function Checkout({
   cartExtras: Record<string, string[]>;
   cartVariants: Record<string, string>;
   total: number;
+  onOrderPlaced: () => void;
 }) {
   const [sent, setSent] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -869,6 +915,7 @@ function Checkout({
     setProfile({ full_name: String(body.customer_name), room_number: String(body.room_number) });
     setEditingDetails(false);
     setSent(true);
+    onOrderPlaced();
   }
   return (
     <Dialog>
