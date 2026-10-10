@@ -856,6 +856,7 @@ function Checkout({
   total: number;
   onOrderPlaced: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [sent, setSent] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [error, setError] = useState("");
@@ -915,10 +916,17 @@ function Checkout({
     setProfile({ full_name: String(body.customer_name), room_number: String(body.room_number) });
     setEditingDetails(false);
     setSent(true);
-    onOrderPlaced();
+  }
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen && sent) {
+      onOrderPlaced();
+      setSent(false);
+      setOrderNumber("");
+    }
   }
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="h-13 w-full rounded-2xl bg-[#2457ff] text-base font-bold hover:bg-[#1744d4]">
           Continue to checkout
@@ -942,6 +950,9 @@ function Checkout({
               <span className="text-sm text-[#6d7893]">Order number</span>
               <p className="text-2xl font-black">#{orderNumber}</p>
             </div>
+            <Button type="button" className="mt-6 h-12 rounded-2xl bg-[#2457ff] px-8 font-bold" onClick={() => handleOpenChange(false)}>
+              Done
+            </Button>
           </div>
         ) : (
           <form action={submit}>
