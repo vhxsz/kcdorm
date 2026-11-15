@@ -14,14 +14,17 @@ const productSchema = z.object({
   delivery_minutes: z.number().int().min(1).max(240),
   image_url: z.string().url().optional().nullable(),
   category: z.string().min(2).max(50).default("Pizzas"),
+  category_id: z.string().uuid().optional().nullable(),
+  featured: z.boolean().default(false),
   extras: z
-    .array(z.object({ name: z.string(), price: z.number().min(0) }))
+    .array(z.object({ name: z.string(), price: z.number().min(0), image_url: z.string().max(600).optional().nullable() }))
     .default([]),
   variants: z.array(z.object({
     name: z.string().min(1).max(80),
     price: z.number().min(0),
     measure_value: z.number().int().positive().optional().nullable(),
     measure_unit: z.enum(["g", "ml"]).optional().nullable(),
+    image_url: z.string().max(600).optional().nullable(),
   })).default([]),
 });
 
@@ -41,27 +44,49 @@ export async function GET(request: Request) {
     if (businessError) throw businessError;
     if (!business)
       return NextResponse.json({ error: "Business not found" }, { status: 404 });
-    let { data, error } = await createAdminClient()
+    let { data, error } = await supabase
       .from("products")
       .select(
-        "id,title,description,price,cost_price,stock,weight_grams,measure_value,measure_unit,delivery_minutes,image_url,category,extras,variants",
+        "id,title,description,price,cost_price,stock,weight_grams,measure_value,measure_unit,delivery_minutes,image_url,category,category_id,featured,extras,variants,created_at",
       )
       .eq("business_id", business.id)
       .eq("active", true)
       .order("created_at");
     // Keep the current menu online between deploy and the measure/variant migration.
     if (error?.message.includes("measure_") || error?.message.includes("variants") || error?.message.includes("cost_price")) {
-      const legacy = await createAdminClient()
+      const legacy = await supabase
         .from("products")
         .select("id,title,description,price,stock,weight_grams,delivery_minutes,image_url,category,extras")
         .eq("business_id", business.id)
         .eq("active", true)
         .order("created_at");
-      data = legacy.data?.map((product) => ({ ...product, cost_price: 0, measure_value: product.weight_grams, measure_unit: "g", variants: [] })) ?? null;
+      data = legacy.data?.map((product) => ({ ...product, cost_price: 0, measure_value: product.weight_grams, measure_unit: "g", variants: [], category_id: null, featured: false, created_at: null })) ?? null;
       error = legacy.error;
     }
     if (error) throw error;
-    return NextResponse.json({ business, products: data }, {
+    const [{ data: categories }, { data: soldItems }] = await Promise.all([
+      supabase
+        .from("product_categories")
+        .select("id,name,slug,sort_order")
+        .eq("business_id", business.id)
+        .eq("active", true)
+        .order("sort_order")
+        .order("name"),
+      supabase
+        .from("order_items")
+        .select("product_id,quantity,orders!inner(business_id,status,payment_status)")
+        .eq("orders.business_id", business.id)
+        .eq("orders.payment_status", "confirmed")
+        .neq("orders.status", "cancelled"),
+    ]);
+    const sales = new Map<string, number>();
+    for (const line of soldItems || [])
+      sales.set(line.product_id, (sales.get(line.product_id) || 0) + Number(line.quantity || 0));
+    const products = (data || []).map((product) => ({
+      ...product,
+      sales_count: sales.get(product.id) || 0,
+    }));
+    return NextResponse.json({ business, products, categories: categories || [] }, {
       headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=120" },
     });
   } catch {
@@ -82,7 +107,19 @@ export async function POST(request: Request) {
       { error: "Invalid product details", issues: parsed.error.flatten() },
       { status: 400 },
     );
-  const { data, error } = await createAdminClient()
+  const supabase = createAdminClient();
+  if (parsed.data.category_id) {
+    const { data: category } = await supabase
+      .from("product_categories")
+      .select("id,name")
+      .eq("id", parsed.data.category_id)
+      .eq("business_id", admin.businessId)
+      .maybeSingle();
+    if (!category)
+      return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+    parsed.data.category = category.name;
+  }
+  const { data, error } = await supabase
     .from("products")
     .insert({ ...parsed.data, business_id: admin.businessId })
     .select()
@@ -105,7 +142,19 @@ export async function PATCH(request: Request) {
       { status: 400 },
     );
   const { id, ...product } = parsed.data;
-  const { data, error } = await createAdminClient()
+  const supabase = createAdminClient();
+  if (product.category_id) {
+    const { data: category } = await supabase
+      .from("product_categories")
+      .select("id,name")
+      .eq("id", product.category_id)
+      .eq("business_id", admin.businessId)
+      .maybeSingle();
+    if (!category)
+      return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+    product.category = category.name;
+  }
+  const { data, error } = await supabase
     .from("products")
     .update(product)
     .eq("id", id)

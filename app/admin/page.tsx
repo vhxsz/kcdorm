@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AdminPanel, type MenuItem } from "../page";
+import { AdminPanel, type MenuCategory, type MenuItem } from "../page";
 import { createClient as createSupabaseClient } from "@/lib/supabase/browser";
 
 export default function AdminPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [configurationMissing, setConfigurationMissing] = useState(false);
   const [productsError, setProductsError] = useState("");
 
@@ -30,6 +31,7 @@ export default function AdminPage() {
     });
     const payload = (await response.json().catch(() => ({}))) as {
       products?: unknown;
+      categories?: MenuCategory[];
       error?: string;
     };
     if (!response.ok) {
@@ -42,6 +44,7 @@ export default function AdminPage() {
       return false;
     }
     const products = payload.products;
+    setCategories(Array.isArray(payload.categories) ? payload.categories : []);
     setItems(
       (Array.isArray(products) ? products : []).map(
         (product: Record<string, unknown>, index: number) => ({
@@ -92,6 +95,8 @@ export default function AdminPage() {
     <main className="min-h-screen bg-[#f6f8fc] text-[#172039]">
       <AdminPanel
         items={items}
+        categories={categories}
+        onCategoryAdded={(category) => setCategories((current) => [...current, category])}
         onProductAdded={(item) => setItems((current) => [...current, item])}
         onProductUpdated={(item) =>
           setItems((current) =>

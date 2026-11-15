@@ -1,21 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   BarChart3,
   BellRing,
   Clock3,
+  CreditCard,
   ImagePlus,
+  LayoutDashboard,
   LogOut,
   Minus,
   Package,
   Pizza,
   Plus,
+  Send,
   Settings2,
   ShoppingBag,
   Sparkles,
   Trash2,
+  UtensilsCrossed,
   UserRound,
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
@@ -40,6 +44,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { createClient as createSupabaseClient } from "@/lib/supabase/browser";
+import { ProductCustomizer } from "@/components/product-customizer";
 
 export type MenuItem = {
   id: string;
@@ -56,8 +61,19 @@ export type MenuItem = {
   tag: string;
   image_url?: string | null;
   category?: string;
-  extras?: { name: string; price: number }[];
-  variants?: { name: string; price: number; measure_value?: number | null; measure_unit?: "g" | "ml" | null }[];
+  category_id?: string | null;
+  featured?: boolean;
+  sales_count?: number;
+  created_at?: string | null;
+  extras?: { name: string; price: number; image_url?: string | null }[];
+  variants?: { name: string; price: number; measure_value?: number | null; measure_unit?: "g" | "ml" | null; image_url?: string | null }[];
+};
+
+export type MenuCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  sort_order: number;
 };
 
 const demoProductImages: Record<string, string> = {
@@ -83,6 +99,35 @@ const demoProductImages: Record<string, string> = {
   "d0000000-0000-4000-8000-000000000020": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=900&q=80",
 };
 
+export const presentationMenu: MenuItem[] = [
+  { id: "d0000000-0000-4000-8000-000000000001", title: "Classic Margherita", description: "Tomato, fior di latte, basil, and extra-virgin olive oil.", price: 16, time: 20, stock: 12, pos: "50% 48%", tag: "Pizzas", category: "Pizzas", featured: true, created_at: "2026-10-29T12:00:00Z",
+    variants: [
+      { name: "Margherita", price: 0, image_url: demoProductImages["d0000000-0000-4000-8000-000000000003"] },
+      { name: "Pepperoni", price: 3, image_url: "/products/classic-pepperoni.png" },
+      { name: "Chicken", price: 2, image_url: demoProductImages["d0000000-0000-4000-8000-000000000002"] },
+    ],
+    extras: [
+      { name: "Extra cheese", price: 1.5, image_url: demoProductImages["d0000000-0000-4000-8000-000000000001"] },
+      { name: "Fries", price: 3, image_url: demoProductImages["d0000000-0000-4000-8000-000000000008"] },
+      { name: "Chicken nuggets", price: 4, image_url: demoProductImages["d0000000-0000-4000-8000-000000000006"] },
+    ] },
+  { id: "d0000000-0000-4000-8000-000000000002", title: "Pepperoni Hot Honey", description: "Cup-and-char pepperoni, mozzarella, tomato, and a touch of hot honey.", price: 19, time: 25, stock: 9, pos: "50% 52%", tag: "Pizzas", category: "Pizzas", featured: true, created_at: "2026-10-30T12:00:00Z" },
+  { id: "d0000000-0000-4000-8000-000000000003", title: "Garden Veggie", description: "Roasted peppers, mushrooms, red onion, olives, and mozzarella.", price: 18, time: 22, stock: 7, pos: "50% 50%", tag: "Pizzas", category: "Pizzas", created_at: "2026-10-22T12:00:00Z" },
+  { id: "d0000000-0000-4000-8000-000000000006", title: "Crispy Chicken Bites", description: "Golden chicken bites served with your choice of dipping sauce.", price: 12, time: 15, stock: 10, pos: "50% 50%", tag: "Snacks", category: "Snacks", created_at: "2026-10-27T12:00:00Z" },
+  { id: "d0000000-0000-4000-8000-000000000008", title: "Sea Salt Fries", description: "Crispy skin-on fries finished with sea salt.", price: 7, time: 12, stock: 15, pos: "50% 50%", tag: "Sides", category: "Sides", created_at: "2026-10-20T12:00:00Z" },
+  { id: "d0000000-0000-4000-8000-000000000014", title: "Kung Pao Chicken", description: "Wok-fired chicken, peppers, peanuts, and a savoury chilli sauce.", price: 17, time: 20, stock: 8, pos: "50% 50%", tag: "Chinese Food", category: "Chinese Food", featured: true, created_at: "2026-10-31T12:00:00Z" },
+  { id: "d0000000-0000-4000-8000-000000000013", title: "Vegetable Fried Rice", description: "Jasmine rice, seasonal vegetables, egg, scallions, and soy.", price: 13, time: 16, stock: 11, pos: "50% 50%", tag: "Chinese Food", category: "Chinese Food", created_at: "2026-10-28T12:00:00Z" },
+  { id: "d0000000-0000-4000-8000-000000000016", title: "Coca-Cola", description: "Chilled Coca-Cola to complete your order.", price: 3.5, time: 5, stock: 24, measure_value: 355, measure_unit: "ml", pos: "50% 50%", tag: "Drinks", category: "Drinks" },
+];
+
+export const presentationCategories: MenuCategory[] = [
+  { id: "demo-pizzas", name: "Pizzas", slug: "pizzas", sort_order: 10 },
+  { id: "demo-snacks", name: "Snacks", slug: "snacks", sort_order: 20 },
+  { id: "demo-sides", name: "Sides", slug: "sides", sort_order: 30 },
+  { id: "demo-chinese", name: "Chinese Food", slug: "chinese-food", sort_order: 40 },
+  { id: "demo-drinks", name: "Drinks", slug: "drinks", sort_order: 50 },
+];
+
 function getProductImage(item: MenuItem) {
   return item.image_url || demoProductImages[item.id] || "/menu-food.jpg";
 }
@@ -91,6 +136,101 @@ function getProductMeasure(item: MenuItem) {
   const value = item.measure_value ?? item.weight_grams;
   if (!value) return "";
   return ` · ${value} ${item.measure_unit || "g"}`;
+}
+
+function MenuProductCard({
+  item,
+  quantity,
+  add,
+  remove,
+  open,
+}: {
+  item: MenuItem;
+  quantity: number;
+  add: (id: string) => void;
+  remove: (id: string) => void;
+  open: (item: MenuItem) => void;
+}) {
+  const soldOut = item.stock < 1;
+  const options = (item.variants?.length || 0) + (item.extras?.length || 0);
+  return (
+    <article onClick={() => !soldOut && open(item)} className={`lgs-card ${soldOut ? "is-sold-out" : ""}`}>
+      <img src={getProductImage(item)} alt="" style={{ objectPosition: item.pos }} />
+      <span className="lgs-chip lgs-glass-dark lgs-card-time"><Clock3 className="size-3.5" /> {item.time} min{getProductMeasure(item)}</span>
+      {(soldOut || item.stock <= 5) && <span className="lgs-chip lgs-glass-dark lgs-card-stock">{soldOut ? "Sold out" : `${item.stock} left`}</span>}
+      <div className="lgs-slab lgs-glass-dark">
+        <div className="lgs-slab-copy">
+          <h3>{item.title}</h3>
+          <p>{item.description}</p>
+        </div>
+        <div className="lgs-slab-row">
+          <span className="lgs-price">${item.price.toFixed(2)}{options > 0 && <small>customisable</small>}</span>
+          {quantity ? (
+            <div className="lgs-stepper">
+              <button onClick={(event) => { event.stopPropagation(); remove(item.id); }} aria-label={`Remove ${item.title}`}><Minus className="size-4" /></button>
+              <b>{quantity}</b>
+              <button onClick={(event) => { event.stopPropagation(); add(item.id); }} aria-label={`Add ${item.title}`}><Plus className="size-4" /></button>
+            </div>
+          ) : (
+            <button
+              className="lgs-add"
+              disabled={soldOut}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (options > 0) open(item);
+                else add(item.id);
+              }}
+              aria-label={soldOut ? `${item.title} is sold out` : `Add ${item.title}`}
+            >
+              <Plus className="size-5" />
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function MenuSection({
+  id,
+  title,
+  description,
+  items,
+  cart,
+  add,
+  remove,
+  open,
+  emptyMessage,
+  carousel = false,
+}: {
+  id?: string;
+  title: string;
+  description?: string;
+  items: MenuItem[];
+  cart: Record<string, number>;
+  add: (id: string) => void;
+  remove: (id: string) => void;
+  open: (item: MenuItem) => void;
+  emptyMessage?: string;
+  carousel?: boolean;
+}) {
+  return (
+    <section id={id} className="menu-discovery-section scroll-mt-32">
+      <div className="menu-section-heading">
+        <div>
+          <h2>{title}</h2>
+          {description && <p>{description}</p>}
+        </div>
+      </div>
+      {items.length ? (
+        <div className={`lgs-grid ${carousel ? "is-carousel" : ""}`}>
+          {items.map((item) => <MenuProductCard key={`${title}-${item.id}`} item={item} quantity={cart[item.id] || 0} add={add} remove={remove} open={open} />)}
+        </div>
+      ) : (
+        <p className="menu-section-empty">{emptyMessage || "No items are available in this section yet."}</p>
+      )}
+    </section>
+  );
 }
 
 function parseVariants(value: string) {
@@ -104,6 +244,7 @@ function parseVariants(value: string) {
       price: Number(price || 0),
       measure_value: measureValue ? Number(measureValue) : null,
       measure_unit: measureUnit?.trim().toLowerCase() === "ml" ? "ml" as const : "g" as const,
+      image_url: null as string | null,
     };
   }).filter((variant) => variant.name && Number.isFinite(variant.price));
 }
@@ -118,6 +259,52 @@ function parseExtras(value: string) {
   }).filter((extra) => extra.name && Number.isFinite(extra.price));
 }
 
+// Uploads a reference image for a variant or an add-on and returns its public URL.
+async function uploadReferenceImage(file: File) {
+  const { data } = await createSupabaseClient().auth.getSession();
+  if (!data.session) throw new Error("Sign in to upload images.");
+  const upload = new FormData();
+  upload.append("file", file);
+  const response = await fetch("/api/uploads", {
+    method: "POST",
+    headers: { authorization: `Bearer ${data.session.access_token}` },
+    body: upload,
+  });
+  const body = (await response.json()) as { url?: string; error?: string };
+  if (!response.ok || !body.url) throw new Error(body.error || "The image could not be uploaded.");
+  return body.url;
+}
+
+function ReferenceImageInput({ value, label, onChange }: { value?: string | null; label: string; onChange: (url: string | null) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <div className="reference-image">
+      <label className={busy ? "is-busy" : ""} title={error || label}>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          aria-label={label}
+          disabled={busy}
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+            setBusy(true);
+            setError("");
+            try { onChange(await uploadReferenceImage(file)); }
+            catch (cause) { setError(cause instanceof Error ? cause.message : "The image could not be uploaded."); }
+            finally { setBusy(false); }
+          }}
+        />
+        {value ? <img src={value} alt="" /> : <ImagePlus className="size-4" aria-hidden="true" />}
+      </label>
+      {value && <button type="button" onClick={() => onChange(null)} aria-label="Remove image">Remove</button>}
+      {error && <p role="alert">{error}</p>}
+    </div>
+  );
+}
+
 function VariantEditor({ name, initial = [], drinks = false }: { name: string; initial?: NonNullable<MenuItem["variants"]>; drinks?: boolean }) {
   const [rows, setRows] = useState(initial);
   const update = (index: number, patch: Partial<NonNullable<MenuItem["variants"]>[number]>) =>
@@ -125,35 +312,45 @@ function VariantEditor({ name, initial = [], drinks = false }: { name: string; i
   return (
     <div className="space-y-3">
       <input type="hidden" name={name} value={JSON.stringify(rows)} />
+      <p className="text-xs text-[#6d7893]">Customers swipe between variants on the product. Give each one its own image to change what they see.</p>
       {rows.map((row, index) => (
-        <div key={index} className="grid gap-2 rounded-2xl border bg-[#f7f9fd] p-3 sm:grid-cols-[1.4fr_.8fr_.8fr_.7fr_auto]">
-          <Input aria-label="Variant name" placeholder="e.g. Large" value={row.name} onChange={(event) => update(index, { name: event.target.value })} />
-          <Input aria-label="Additional price" type="number" step="0.01" min="0" placeholder="+$0.00" value={row.price} onChange={(event) => update(index, { price: Number(event.target.value) })} />
-          <Input aria-label="Amount" type="number" min="1" placeholder={drinks ? "355" : "450"} value={row.measure_value || ""} onChange={(event) => update(index, { measure_value: event.target.value ? Number(event.target.value) : null })} />
-          <select aria-label="Unit" value={row.measure_unit || (drinks ? "ml" : "g")} onChange={(event) => update(index, { measure_unit: event.target.value as "g" | "ml" })} className="h-11 rounded-xl border bg-white px-2">
-            {drinks && <option value="ml">mL</option>}<option value="g">grams</option>
-          </select>
-          <Button type="button" variant="ghost" aria-label="Remove variant" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))}><Trash2 className="size-4" /></Button>
+        <div key={index} className="space-y-2 rounded-2xl border bg-[#f7f9fd] p-3">
+          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+            <ReferenceImageInput label="Variant image" value={row.image_url} onChange={(url) => update(index, { image_url: url })} />
+            <Input aria-label="Variant name" placeholder="e.g. Pepperoni" value={row.name} onChange={(event) => update(index, { name: event.target.value })} />
+            <Button type="button" variant="ghost" aria-label="Remove variant" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))}><Trash2 className="size-4" /></Button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <Input aria-label="Additional price" type="number" step="0.01" min="0" placeholder="+$0.00" value={row.price} onChange={(event) => update(index, { price: Number(event.target.value) })} />
+            <Input aria-label="Amount" type="number" min="1" placeholder={drinks ? "355" : "450"} value={row.measure_value || ""} onChange={(event) => update(index, { measure_value: event.target.value ? Number(event.target.value) : null })} />
+            <select aria-label="Unit" value={row.measure_unit || (drinks ? "ml" : "g")} onChange={(event) => update(index, { measure_unit: event.target.value as "g" | "ml" })} className="h-11 rounded-xl border bg-white px-2">
+              {drinks && <option value="ml">mL</option>}<option value="g">grams</option>
+            </select>
+          </div>
         </div>
       ))}
-      <Button type="button" variant="outline" className="rounded-xl" onClick={() => setRows((current) => [...current, { name: "", price: 0, measure_value: null, measure_unit: drinks ? "ml" : "g" }])}><Plus className="size-4" /> Add size or variant</Button>
+      <Button type="button" variant="outline" className="rounded-xl" onClick={() => setRows((current) => [...current, { name: "", price: 0, measure_value: null, measure_unit: drinks ? "ml" : "g", image_url: null }])}><Plus className="size-4" /> Add size or variant</Button>
     </div>
   );
 }
 
 function ExtraEditor({ name, initial = [] }: { name: string; initial?: NonNullable<MenuItem["extras"]> }) {
   const [rows, setRows] = useState(initial);
+  const update = (index: number, patch: Partial<NonNullable<MenuItem["extras"]>[number]>) =>
+    setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row));
   return (
     <div className="space-y-3">
       <input type="hidden" name={name} value={JSON.stringify(rows)} />
+      <p className="text-xs text-[#6d7893]">The reference image appears on top of the product when a customer adds the extra. A PNG with a transparent background looks best.</p>
       {rows.map((row, index) => (
-        <div key={index} className="grid grid-cols-[1fr_130px_auto] gap-2 rounded-2xl border bg-[#f7f9fd] p-3">
-          <Input aria-label="Extra name" placeholder="e.g. Extra cheese" value={row.name} onChange={(event) => setRows((current) => current.map((item, rowIndex) => rowIndex === index ? { ...item, name: event.target.value } : item))} />
-          <Input aria-label="Extra price" type="number" min="0" step="0.01" placeholder="$0.00" value={row.price} onChange={(event) => setRows((current) => current.map((item, rowIndex) => rowIndex === index ? { ...item, price: Number(event.target.value) } : item))} />
+        <div key={index} className="grid grid-cols-[auto_1fr_90px_auto] items-center gap-2 rounded-2xl border bg-[#f7f9fd] p-3">
+          <ReferenceImageInput label="Extra reference image" value={row.image_url} onChange={(url) => update(index, { image_url: url })} />
+          <Input aria-label="Extra name" placeholder="e.g. Extra cheese" value={row.name} onChange={(event) => update(index, { name: event.target.value })} />
+          <Input aria-label="Extra price" type="number" min="0" step="0.01" placeholder="$0.00" value={row.price} onChange={(event) => update(index, { price: Number(event.target.value) })} />
           <Button type="button" variant="ghost" aria-label="Remove extra" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))}><Trash2 className="size-4" /></Button>
         </div>
       ))}
-      <Button type="button" variant="outline" className="rounded-xl" onClick={() => setRows((current) => [...current, { name: "", price: 0 }])}><Plus className="size-4" /> Add extra</Button>
+      <Button type="button" variant="outline" className="rounded-xl" onClick={() => setRows((current) => [...current, { name: "", price: 0, image_url: null }])}><Plus className="size-4" /> Add extra</Button>
     </div>
   );
 }
@@ -163,6 +360,7 @@ export default function Home() {
 
 export function Storefront({ businessSlug }: { businessSlug: string }) {
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [businessName, setBusinessName] = useState("");
   const [customer, setCustomer] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -172,8 +370,6 @@ export function Storefront({ businessSlug }: { businessSlug: string }) {
   const [cartExtras, setCartExtras] = useState<Record<string, string[]>>({});
   const [cartVariants, setCartVariants] = useState<Record<string, string>>({});
   const [selectedProduct, setSelectedProduct] = useState<MenuItem | null>(null);
-  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
-  const [selectedVariant, setSelectedVariant] = useState("");
   const [category, setCategory] = useState("All");
   const count = Object.values(cart).reduce((a, b) => a + b, 0);
   const total = useMemo(
@@ -249,6 +445,7 @@ export function Storefront({ businessSlug }: { businessSlug: string }) {
           ? ((await r.json()) as {
               business?: { name?: string };
               products?: Array<Record<string, unknown>>;
+          categories?: MenuCategory[];
             })
           : Promise.reject(),
       )
@@ -264,8 +461,15 @@ export function Storefront({ businessSlug }: { businessSlug: string }) {
               tag: String(p.category || "Available"),
             }) as unknown as MenuItem),
           );
+        setCategories(Array.isArray(data.categories) ? data.categories : []);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (businessSlug === "main") {
+          setBusinessName("Pizza Next Door");
+          setItems(presentationMenu);
+          setCategories(presentationCategories);
+        }
+      });
   }, [businessSlug]);
 
   useEffect(() => {
@@ -319,299 +523,159 @@ export function Storefront({ businessSlug }: { businessSlug: string }) {
     setCartExtras({});
     setCartVariants({});
   };
+  const signInCustomer = async () => {
+    await createSupabaseClient().auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(businessSlug === "main" ? "/" : `/${businessSlug}`)}`,
+      },
+    });
+  };
+  const visibleCategories = categories.length
+    ? categories
+    : Array.from(new Set(items.map((item) => item.category).filter(Boolean))).map((name, index) => ({
+        id: `category-${index}`,
+        name: String(name),
+        slug: String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        sort_order: index,
+      }));
+  const bestSellers = [...items]
+    .filter((item) => Number(item.sales_count || 0) > 0)
+    .sort((a, b) => Number(b.sales_count || 0) - Number(a.sales_count || 0))
+    .slice(0, 6);
+  const newArrivals = [...items]
+    .filter((item) => item.created_at)
+    .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
+    .slice(0, 6);
+  const featuredItems = items.filter((item) => item.featured).slice(0, 6);
+  const openProduct = (item: MenuItem) => {
+    if (item.stock < 1) return;
+    setSelectedProduct(item);
+  };
+  const categoryNames = ["All", ...visibleCategories.map((entry) => entry.name)];
+  const categoryBar = useRef<HTMLDivElement>(null);
+  const [lens, setLens] = useState({ left: 0, width: 0 });
+  useLayoutEffect(() => {
+    const active = categoryBar.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (active) setLens({ left: active.offsetLeft, width: active.offsetWidth });
+  }, [category, categoryNames.length, authReady]);
 
-  if (!authReady) return <main className="grid min-h-screen place-items-center bg-[#f6f8fc] text-[#172039]">Loading your account...</main>;
-  if (!customer) return <CustomerSignIn businessSlug={businessSlug} businessName={businessName} />;
+  if (!authReady) return <main className="lgs grid min-h-screen place-items-center">Loading your account...</main>;
 
+  const name = businessName || "Pizza Next Door";
   return (
-    <main className="min-h-screen bg-[#f6f8fc] text-[#172039]">
-      <header className="sticky top-0 z-40 border-b border-[#dfe5f1] bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="grid size-11 place-items-center rounded-2xl bg-[#2457ff] text-white shadow-[0_8px_24px_rgba(36,87,255,.25)]">
-              <Pizza className="size-6" />
-            </div>
-            <div className="font-black tracking-[-.04em]">{businessName || "LOADING MENU"}</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <CustomerOrders businessSlug={businessSlug} />
-            <Button variant="ghost" aria-label="Sign out" className="h-11 rounded-full px-3 sm:px-4" onClick={() => void createSupabaseClient().auth.signOut()}><LogOut className="size-4" /><span className="hidden sm:inline">Sign out</span></Button>
-            <Sheet open={cartOpen} onOpenChange={setCartOpen}>
-              <SheetTrigger asChild>
-                <Button className="h-11 rounded-full bg-[#172039] px-5 text-white hover:bg-[#2457ff]">
-                  <ShoppingBag className="size-4" /> Cart{" "}
-                  <span className="rounded-full bg-white/15 px-2 py-0.5">
-                    {count}
-                  </span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent className="w-full border-0 p-0 sm:max-w-md">
-                <Cart
-                  businessSlug={businessSlug}
-                  items={items}
-                  total={total}
-                  cart={cart}
-                  cartExtras={cartExtras}
-                  cartVariants={cartVariants}
-                  add={add}
-                  remove={remove}
-                  clearCart={clearCart}
-                />
-              </SheetContent>
-            </Sheet>
-          </div>
+    <main className="lgs">
+      <header className="lgs-nav lgs-glass-dark">
+        <a href="#top" className="lgs-wordmark" aria-label={`${name} menu`}>
+          <span><img src="/pizza-next-door-mark.png?v=2" alt="" aria-hidden="true" /></span>
+          <b>{name}</b>
+        </a>
+        <div className="lgs-nav-actions">
+          {customer ? (
+            <>
+              <CustomerOrders businessSlug={businessSlug} />
+              <Button variant="ghost" aria-label="Sign out" className="h-11 rounded-full px-3 sm:px-4" onClick={() => void createSupabaseClient().auth.signOut()}><LogOut className="size-4" /><span className="hidden sm:inline">Sign out</span></Button>
+            </>
+          ) : (
+            <Button variant="ghost" className="h-11 rounded-full px-3 sm:px-4" onClick={() => void signInCustomer()}>
+              <UserRound className="size-4" /><span className="hidden sm:inline">Sign in</span>
+            </Button>
+          )}
+          <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+            <SheetTrigger asChild>
+              <Button className="lgs-cart h-11 rounded-full px-4">
+                <ShoppingBag className="size-4" /> Cart <span>{count}</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-full border-0 p-0 sm:max-w-md">
+              <Cart
+                businessSlug={businessSlug}
+                items={items}
+                total={total}
+                cart={cart}
+                cartExtras={cartExtras}
+                cartVariants={cartVariants}
+                add={add}
+                remove={remove}
+                clearCart={clearCart}
+              />
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-5 pb-28 pt-7 lg:px-8 lg:pt-10">
-        <div className="mb-8 grid gap-5 lg:grid-cols-[1.55fr_.85fr]">
-          <div className="relative overflow-hidden rounded-[32px] bg-[#2457ff] p-7 text-white shadow-[0_20px_70px_rgba(36,87,255,.18)] md:p-10">
-            <div className="relative z-10 max-w-xl">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1.5 text-sm font-semibold">
-                <Sparkles className="size-4" /> Delivered to your room
-              </div>
-              <h1 className="text-4xl font-black leading-[.95] tracking-[-.06em] md:text-6xl">
-                Hungry now?
-                <br />
-                We’re next door.
-              </h1>
-              <p className="mt-5 max-w-md text-base leading-relaxed text-blue-100">
-                Choose your favourites, pick a time, and relax. There’s no
-                minimum order.
-              </p>
-            </div>
-            <div className="absolute -bottom-24 -right-16 size-72 rounded-full border-[48px] border-[#ffdf57] opacity-90" />
+      <section id="top" className="lgs-hero">
+        <img src="/menu-food.jpg" alt="Freshly baked pizzas and fries ready to serve" />
+        <div className="lgs-hero-row">
+          <div className="lgs-hero-copy lgs-glass-dark">
+            <h1>
+              <span style={{ animationDelay: ".15s" }}>Pizza</span> <span style={{ animationDelay: ".23s" }}>night,</span><br />
+              <span style={{ animationDelay: ".34s" }}>without</span> <span style={{ animationDelay: ".42s" }}>the</span> <em style={{ animationDelay: ".5s" }}>wait.</em>
+            </h1>
+            <p>Oven-fresh favourites, sides, and drinks delivered in 15–30 minutes. No minimum order.</p>
+            <a href="#menu" className="lgs-cta">Explore the menu</a>
           </div>
-          <div className="flex min-h-56 flex-col justify-between rounded-[32px] bg-[#ffdf57] p-7 md:p-8">
-            <div className="flex items-start justify-between">
-              <span className="text-sm font-bold uppercase tracking-widest">
-                Quick delivery
-              </span>
-              <Clock3 className="size-6" />
-            </div>
-            <div>
-              <p className="flex items-baseline gap-3 text-6xl font-black tracking-[-.04em]">
-                <span>15</span>
-                <span aria-hidden="true">–</span>
-                <span>30</span>
-              </p>
-              <p className="mt-1 text-lg font-bold">minutes to your door</p>
-            </div>
+          <div className="lgs-hero-eta lgs-glass-dark">
+            <small>Quick delivery</small>
+            <b>15–30</b>
+            <span>minutes to your door</span>
           </div>
-        </div>
-
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[.16em] text-[#2457ff]">
-              Fresh from the oven
-            </p>
-            <h2 className="mt-1 text-3xl font-black tracking-[-.04em]">
-              What are you craving?
-            </h2>
-          </div>
-          <button className="hidden text-sm font-bold text-[#6d7893] md:block">
-            Delivery information
-          </button>
-        </div>
-        <div className="mb-7 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {["All", "Pizzas", "Snacks", "Sides", "Drinks"].map((name) => (
-            <button
-              key={name}
-              onClick={() => setCategory(name)}
-              className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold transition ${category === name ? "bg-[#172039] text-white" : "border border-[#dfe5f1] bg-white text-[#59647e] hover:border-[#2457ff]"}`}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {items
-            .filter((item) => category === "All" || item.category === category)
-            .map((item) => (
-              <article
-                key={item.id}
-                onClick={() => {
-                  if (item.stock < 1) return;
-                  setSelectedProduct(item);
-                  setSelectedExtras(cartExtras[item.id] || []);
-                }}
-                className={`group overflow-hidden rounded-[26px] border border-[#dfe5f1] bg-white shadow-[0_8px_30px_rgba(25,39,78,.05)] transition ${item.stock > 0 ? "hover:-translate-y-1 hover:shadow-[0_18px_50px_rgba(25,39,78,.10)]" : "opacity-70"}`}
-              >
-                <div className="relative h-56 overflow-hidden">
-                  <img
-                    src={getProductImage(item)}
-                    alt={item.title}
-                    className="h-full w-full scale-[1.35] object-cover transition duration-500 group-hover:scale-[1.42]"
-                    style={{ objectPosition: item.pos }}
-                  />
-                  <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-xs font-black shadow-sm">
-                    {item.tag}
-                  </span>
-                  <span className="absolute bottom-4 right-4 rounded-full bg-[#172039]/90 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
-                    {item.stock > 0 ? `${item.stock} available` : "Sold out"}
-                  </span>
-                </div>
-                <div className="p-5">
-                  <h3 className="text-xl font-black tracking-[-.025em]">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 min-h-12 text-sm leading-relaxed text-[#6d7893]">
-                    {item.description}
-                  </p>
-                  <div className="mt-5 flex items-end justify-between">
-                    <div>
-                      <p className="text-2xl font-black">
-                        ${item.price.toFixed(2)}
-                      </p>
-                      <p className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-[#6d7893]">
-                        <Clock3 className="size-3.5" /> {item.time} min
-                        {getProductMeasure(item)}
-                      </p>
-                    </div>
-                    {cart[item.id] ? (
-                      <div className="flex items-center gap-3 rounded-full bg-[#edf1ff] p-1">
-                        <button
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            remove(item.id);
-                          }}
-                          aria-label={`Remove ${item.title}`}
-                          className="grid size-9 place-items-center rounded-full bg-white"
-                        >
-                          <Minus className="size-4" />
-                        </button>
-                        <b>{cart[item.id]}</b>
-                        <button
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            add(item.id);
-                          }}
-                          aria-label={`Add ${item.title}`}
-                          className="grid size-9 place-items-center rounded-full bg-[#2457ff] text-white"
-                        >
-                          <Plus className="size-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <Button
-                        disabled={item.stock < 1}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          if (item.extras?.length || item.variants?.length) {
-                            setSelectedProduct(item);
-                            setSelectedExtras([]);
-                            setSelectedVariant(item.variants?.[0]?.name || "");
-                          } else add(item.id);
-                        }}
-                        className={item.stock > 0
-                          ? "size-11 rounded-full bg-[#2457ff] p-0 hover:bg-[#1744d4]"
-                          : "h-11 rounded-full px-4 text-xs font-black"}
-                        aria-label={item.stock > 0 ? `Add ${item.title}` : `${item.title} is sold out`}
-                      >
-                        {item.stock > 0 ? <Plus className="size-5" /> : <span className="px-2 text-xs font-black">SOLD OUT</span>}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </article>
-            ))}
         </div>
       </section>
-      <Dialog
-        open={Boolean(selectedProduct)}
-        onOpenChange={(open) => !open && setSelectedProduct(null)}
-      >
-        <DialogContent className="rounded-[28px] sm:max-w-lg">
-          {selectedProduct && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-black">
-                  Customize {selectedProduct.title}
-                </DialogTitle>
-              </DialogHeader>
-              <p className="text-sm text-[#6d7893]">
-                Choose a size or variant and any extras you would like to add.
-              </p>
-              <div className="space-y-2 py-3">
-                {selectedProduct.variants?.map((variant) => (
-                  <label key={variant.name} className="flex cursor-pointer items-center justify-between rounded-2xl border p-4">
-                    <span className="flex items-center gap-3">
-                      <input type="radio" name="variant" checked={selectedVariant === variant.name} onChange={() => setSelectedVariant(variant.name)} />
-                      <b>{variant.name}</b>
-                      {variant.measure_value && <span className="text-sm text-[#6d7893]">{variant.measure_value} {variant.measure_unit}</span>}
-                    </span>
-                    <span>{Number(variant.price) ? `+$${Number(variant.price).toFixed(2)}` : "Included"}</span>
-                  </label>
-                ))}
-                {selectedProduct.extras?.length ? (
-                  selectedProduct.extras.map((extra) => (
-                    <label
-                      key={extra.name}
-                      className="flex cursor-pointer items-center justify-between rounded-2xl border p-4"
-                    >
-                      <span className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedExtras.includes(extra.name)}
-                          onChange={() =>
-                            setSelectedExtras((current) =>
-                              current.includes(extra.name)
-                                ? current.filter((name) => name !== extra.name)
-                                : [...current, extra.name],
-                            )
-                          }
-                        />
-                        <b>{extra.name}</b>
-                      </span>
-                      <span>+${Number(extra.price).toFixed(2)}</span>
-                    </label>
-                  ))
-                ) : (
-                  <p className="rounded-2xl bg-[#f3f6fb] p-4">
-                    No extras are available for this item.
-                  </p>
-                )}
-              </div>
-              <Button
-                disabled={selectedProduct.stock < 1}
-                className="h-12 w-full rounded-2xl bg-[#2457ff] font-bold"
-                onClick={() => {
-                  setCartExtras((current) => ({
-                    ...current,
-                    [selectedProduct.id]: selectedExtras,
-                  }));
-                  setCartVariants((current) => ({
-                    ...current,
-                    [selectedProduct.id]: selectedVariant,
-                  }));
-                  add(selectedProduct.id);
-                  setSelectedProduct(null);
-                }}
-              >
-                Add to order · $
-                {(
-                  selectedProduct.price +
-                  (selectedProduct.extras || [])
-                    .filter((extra) => selectedExtras.includes(extra.name))
-                    .reduce((sum, extra) => sum + Number(extra.price), 0) +
-                  Number((selectedProduct.variants || []).find((variant) => variant.name === selectedVariant)?.price || 0)
-                ).toFixed(2)}
-              </Button>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-      {count > 0 && (
+
+      <section id="menu" className="lgs-menu">
+        <div className="lgs-menu-head">
+          <h2>What are you in the mood for?</h2>
+          <div className="lgs-cats-scroll">
+            <div className="lgs-cats lgs-glass-light" ref={categoryBar}>
+              <i aria-hidden="true" style={{ transform: `translateX(${lens.left}px)`, width: lens.width }} />
+              {categoryNames.map((entry) => (
+                <button key={entry} aria-pressed={category === entry} onClick={() => setCategory(entry)}>{entry}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {category === "All" ? (
+          <div className="menu-discovery">
+            <MenuSection title="Best sellers" description="Ranked by confirmed customer orders." items={bestSellers} cart={cart} add={add} remove={remove} open={openProduct} emptyMessage="Best sellers will appear after the first confirmed orders." carousel />
+            <MenuSection title="New arrivals" description="The latest additions to the menu." items={newArrivals} cart={cart} add={add} remove={remove} open={openProduct} carousel />
+            {featuredItems.length > 0 && <MenuSection title="Featured today" description="Selected by the kitchen." items={featuredItems} cart={cart} add={add} remove={remove} open={openProduct} carousel />}
+            {visibleCategories.map((entry) => (
+              <MenuSection key={entry.id} id={entry.slug} title={entry.name} items={items.filter((item) => item.category_id ? item.category_id === entry.id : item.category === entry.name)} cart={cart} add={add} remove={remove} open={openProduct} />
+            ))}
+          </div>
+        ) : (
+          <MenuSection title={category} items={items.filter((item) => item.category === category)} cart={cart} add={add} remove={remove} open={openProduct} />
+        )}
+      </section>
+
+      {selectedProduct && (
+        <ProductCustomizer
+          key={selectedProduct.id}
+          item={selectedProduct}
+          image={getProductImage(selectedProduct)}
+          initialVariant={cartVariants[selectedProduct.id] || selectedProduct.variants?.[0]?.name || ""}
+          initialExtras={cartExtras[selectedProduct.id] || []}
+          onClose={() => setSelectedProduct(null)}
+          onAdd={(variant, extras) => {
+            setCartExtras((current) => ({ ...current, [selectedProduct.id]: extras }));
+            setCartVariants((current) => ({ ...current, [selectedProduct.id]: variant }));
+            add(selectedProduct.id);
+            setSelectedProduct(null);
+          }}
+        />
+      )}
+
+      {count > 0 && !selectedProduct && (
         <button
           type="button"
           aria-label={`Open cart with ${count} ${count === 1 ? "item" : "items"}`}
           onClick={() => setCartOpen(true)}
-          className="fixed bottom-5 left-1/2 z-30 flex w-[calc(100%-40px)] max-w-md -translate-x-1/2 items-center justify-between rounded-2xl bg-[#172039] px-5 py-4 text-white shadow-2xl transition hover:bg-[#2457ff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2457ff]/30 md:hidden"
+          className="lgs-dock lgs-glass-dark"
         >
-          <span className="font-bold">
-            Cart · {count} {count === 1 ? "item" : "items"}
-          </span>
+          <span>{count} {count === 1 ? "item" : "items"}</span>
           <b>${total.toFixed(2)}</b>
+          <em>View cart</em>
         </button>
       )}
     </main>
@@ -722,72 +786,6 @@ function Cart({
         </div>
       )}
     </div>
-  );
-}
-
-function CustomerSignIn({ businessSlug, businessName }: { businessSlug: string; businessName: string }) {
-  const [message, setMessage] = useState(() =>
-    typeof window !== "undefined" && new URLSearchParams(window.location.search).has("auth_error")
-      ? "Sign-in could not be completed. Please try again."
-      : "",
-  );
-  const [busy, setBusy] = useState(false);
-  async function googleAuth() {
-    setBusy(true);
-    setMessage("");
-    const { error } = await createSupabaseClient().auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(businessSlug === "main" ? "/" : `/${businessSlug}`)}`,
-      },
-    });
-    if (error) { setMessage(error.message); setBusy(false); }
-  }
-  return (
-    <main className="relative min-h-screen overflow-hidden bg-[#f7f8fc] text-[#111a32]">
-      <div className="absolute -left-28 -top-28 size-80 rounded-full bg-[#2457ff]/15 blur-3xl" />
-      <div className="absolute -bottom-36 -right-24 size-96 rounded-full bg-[#ffd84d]/25 blur-3xl" />
-      <div className="relative mx-auto grid min-h-screen max-w-7xl items-stretch lg:grid-cols-[1.08fr_.92fr] lg:p-5">
-        <section className="relative hidden overflow-hidden rounded-[34px] bg-[#132b88] p-12 text-white shadow-2xl lg:flex lg:flex-col lg:justify-between">
-          <img src="/menu-food.jpg" alt="Fresh food from Pizza Next Door" className="absolute inset-0 size-full object-cover opacity-25 mix-blend-luminosity" />
-          <div className="absolute inset-0 bg-gradient-to-br from-[#17358f]/95 via-[#17358f]/85 to-[#0d1c55]/95" />
-          <div className="relative flex items-center gap-3">
-            <div className="grid size-12 place-items-center rounded-2xl bg-[#ffd84d] text-[#142253]"><Pizza /></div>
-            <span className="text-lg font-black tracking-[-.04em]">PIZZA NEXT DOOR</span>
-          </div>
-          <div className="relative max-w-xl">
-            <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold backdrop-blur">Made nearby. Delivered fast.</span>
-            <h1 className="mt-6 text-6xl font-black leading-[.92] tracking-[-.065em]">Good food is right next door.</h1>
-            <p className="mt-6 max-w-lg text-lg leading-relaxed text-blue-100">Browse the live menu, order to your room, and keep every receipt in one place.</p>
-          </div>
-          <div className="relative grid grid-cols-3 gap-3 text-sm font-bold">
-            <span className="rounded-2xl bg-white/10 p-4 backdrop-blur">Live menu</span>
-            <span className="rounded-2xl bg-white/10 p-4 backdrop-blur">Saved room</span>
-            <span className="rounded-2xl bg-white/10 p-4 backdrop-blur">Order history</span>
-          </div>
-        </section>
-        <section className="grid min-h-screen place-items-center px-5 py-10 sm:px-10 lg:min-h-0 lg:px-16">
-          <div className="w-full max-w-md">
-            <div className="mb-10 flex items-center gap-3 lg:hidden">
-              <div className="grid size-11 place-items-center rounded-2xl bg-[#2457ff] text-white shadow-lg"><Pizza className="size-5" /></div>
-              <span className="font-black tracking-[-.04em]">PIZZA NEXT DOOR</span>
-            </div>
-            <div className="rounded-[30px] border border-[#dfe5f1] bg-white p-7 shadow-[0_24px_80px_rgba(24,37,78,.12)] sm:p-9">
-              <p className="text-xs font-black uppercase tracking-[.2em] text-[#2457ff]">{businessName || "Pizza Next Door"}</p>
-              <h2 className="mt-3 text-4xl font-black leading-none tracking-[-.055em]">Sign in and start your order.</h2>
-              <p className="mt-4 leading-relaxed text-[#6d7893]">Use any Google account. Your name, room and order history will be saved securely for next time.</p>
-              <Button type="button" disabled={busy} variant="outline" className="mt-8 h-14 w-full rounded-2xl border-[#ccd5e8] bg-white text-base font-black shadow-sm hover:bg-[#f5f7ff]" onClick={() => void googleAuth()}>
-                <span className="grid size-7 place-items-center rounded-full bg-white text-lg font-black text-[#4285f4] shadow-sm">G</span>
-                {busy ? "Connecting to Google..." : "Continue with Google"}
-              </Button>
-              {message && <p role="status" className="mt-4 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-600">{message}</p>}
-              <p className="mt-6 text-center text-xs leading-relaxed text-[#7a849c]">By continuing, you agree to use your account information only for ordering and delivery.</p>
-            </div>
-            <p className="mt-6 text-center text-sm text-[#6d7893]">Running a business? <Link href="/business" className="font-bold text-[#2457ff] hover:underline">Open the business portal</Link></p>
-          </div>
-        </section>
-      </div>
-    </main>
   );
 }
 
@@ -1045,20 +1043,26 @@ function Checkout({
 
 export function AdminPanel({
   items,
+  categories,
+  onCategoryAdded,
   onProductAdded,
   onProductUpdated,
   onProductDeleted,
   onRefreshProducts,
   productsError,
   onBack,
+  previewMode = false,
 }: {
   items: MenuItem[];
+  categories: MenuCategory[];
+  onCategoryAdded: (category: MenuCategory) => void;
   onProductAdded: (item: MenuItem) => void;
   onProductUpdated: (item: MenuItem) => void;
   onProductDeleted: (id: string) => void;
   onRefreshProducts: () => Promise<boolean>;
   productsError: string;
   onBack: () => void;
+  previewMode?: boolean;
 }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -1069,6 +1073,11 @@ export function AdminPanel({
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [editMessage, setEditMessage] = useState("");
   const [editImagePreview, setEditImagePreview] = useState("");
+  const previewOrders = [
+    { id: "preview-1", order_number: 1042, customer_name: "Jordan Lee", room_number: "312", total: 38.5, status: "preparing", payment_status: "confirmed" as const, created_at: "2026-10-31T18:42:00Z", order_items: [{ title_snapshot: "Pepperoni Hot Honey", quantity: 2 }] },
+    { id: "preview-2", order_number: 1041, customer_name: "Sam Rivera", room_number: "Lobby", total: 17, status: "new", payment_status: "pending" as const, created_at: "2026-10-31T18:30:00Z", order_items: [{ title_snapshot: "Kung Pao Chicken", quantity: 1 }] },
+    { id: "preview-3", order_number: 1040, customer_name: "Taylor Morgan", room_number: "208", total: 23, status: "ready", payment_status: "confirmed" as const, created_at: "2026-10-31T18:14:00Z", order_items: [{ title_snapshot: "Classic Margherita", quantity: 1 }, { title_snapshot: "Coca-Cola", quantity: 2 }] },
+  ];
   const [orders, setOrders] = useState<
     Array<{
       id: string;
@@ -1081,11 +1090,14 @@ export function AdminPanel({
       created_at: string;
       order_items?: Array<{ title_snapshot: string; quantity: number }>;
     }>
-  >([]);
-  const [createCategory, setCreateCategory] = useState("Pizzas");
+  >(previewMode ? previewOrders : []);
+  const [createCategory, setCreateCategory] = useState("");
   const [createCostPrice, setCreateCostPrice] = useState("");
   const [createSellingPrice, setCreateSellingPrice] = useState("");
+  const [adminSection, setAdminSection] = useState("orders");
+  const activeCreateCategory = createCategory || categories[0]?.name || "Pizzas";
   useEffect(() => {
+    if (previewMode) return;
     void (async () => {
       try {
         const { data } = await createSupabaseClient().auth.getSession();
@@ -1104,7 +1116,7 @@ export function AdminPanel({
         setAuthChecked(true);
       }
     })();
-  }, []);
+  }, [previewMode]);
   async function login(form: FormData) {
     setLoginError("");
     try {
@@ -1175,6 +1187,8 @@ export function AdminPanel({
           measure_unit: String(form.get("measure_unit") || "g"),
           delivery_minutes: Number(form.get("delivery_minutes")),
           category: String(form.get("category") || "Pizzas"),
+          category_id: String(form.get("category_id") || "") || null,
+          featured: form.get("featured") === "on",
           extras,
           variants,
           image_url: imageUrl,
@@ -1195,6 +1209,25 @@ export function AdminPanel({
       setSaveMessage(
         error instanceof Error ? error.message : "We could not save this item.",
       );
+    }
+  }
+  async function createMenuCategory(form: FormData) {
+    setSaveMessage("Creating category...");
+    try {
+      const { data } = await createSupabaseClient().auth.getSession();
+      if (!data.session) throw new Error("Your session has expired.");
+      const response = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${data.session.access_token}` },
+        body: JSON.stringify({ name: String(form.get("name") || "") }),
+      });
+      const payload = (await response.json()) as MenuCategory & { error?: string };
+      if (!response.ok) throw new Error(payload.error || "The category could not be created.");
+      onCategoryAdded(payload);
+      setCreateCategory(payload.name);
+      setSaveMessage(`${payload.name} is ready for products.`);
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "The category could not be created.");
     }
   }
   async function loadOrders() {
@@ -1277,6 +1310,8 @@ export function AdminPanel({
           measure_unit: String(form.get("measure_unit") || "g"),
           delivery_minutes: Number(form.get("delivery_minutes")),
           category: String(form.get("category") || "Pizzas"),
+          category_id: String(form.get("category_id") || "") || null,
+          featured: form.get("featured") === "on",
           extras,
           variants,
           image_url: imageUrl,
@@ -1350,7 +1385,7 @@ export function AdminPanel({
     }
   }
   useEffect(() => {
-    if (!authenticated) return;
+    if (previewMode || !authenticated) return;
     void loadOrders();
     const interval = window.setInterval(() => void loadOrders(), 15000);
     const refresh = () => void loadOrders();
@@ -1359,10 +1394,10 @@ export function AdminPanel({
       window.clearInterval(interval);
       window.removeEventListener("focus", refresh);
     };
-  }, [authenticated]);
-  if (!authChecked)
+  }, [authenticated, previewMode]);
+  if (!previewMode && !authChecked)
     return <section className="grid min-h-[75vh] place-items-center text-[#6d7893]">Checking administrator access...</section>;
-  if (!authenticated)
+  if (!previewMode && !authenticated)
     return (
       <section className="mx-auto grid min-h-[75vh] max-w-md place-items-center px-5">
         <form
@@ -1416,8 +1451,43 @@ export function AdminPanel({
         </form>
       </section>
     );
+  const adminNavigation = [
+    { value: "orders", label: "Orders", icon: LayoutDashboard },
+    { value: "menu", label: "Menu & stock", icon: UtensilsCrossed },
+    { value: "finance", label: "Finance", icon: CreditCard },
+    { value: "settings", label: "Telegram", icon: Send },
+  ];
   return (
+    <div className="admin-app">
+      <img src="/menu-food.jpg" alt="" aria-hidden="true" className="admin-ambient" />
+      <aside className="admin-rail" aria-label="Administrator navigation">
+        <div className="admin-rail-brand" aria-label="Pizza Next Door">
+          <img src="/pizza-next-door-mark.png?v=2" alt="" aria-hidden="true" className="size-11 max-h-11 max-w-11 object-contain" />
+        </div>
+        <nav>
+          {adminNavigation.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              className={adminSection === value ? "is-active" : ""}
+              onClick={() => setAdminSection(value)}
+              aria-label={label}
+              aria-current={adminSection === value ? "page" : undefined}
+              title={label}
+            >
+              <Icon />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+        <button type="button" onClick={onBack} className="admin-rail-exit" title="Open storefront">
+          <ShoppingBag />
+          <span>Storefront</span>
+        </button>
+      </aside>
+      <main className="admin-workspace">
     <section className="mx-auto max-w-7xl px-5 pb-24 pt-8 lg:px-8">
+      {previewMode && <div className="admin-preview-notice">Read-only local preview · sample operational data</div>}
       {(productsError || ordersError) && (
         <div role="alert" className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-bold text-red-700">
           {productsError || ordersError}
@@ -1425,12 +1495,11 @@ export function AdminPanel({
       )}
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-bold uppercase tracking-[.16em] text-[#2457ff]">
-            Admin dashboard
-          </p>
+          <p className="admin-kicker">Live operations</p>
           <h1 className="mt-1 text-4xl font-black tracking-[-.05em]">
             Today’s operations
           </h1>
+          <p className="admin-subtitle">Orders, stock, and payments in one working view.</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -1446,7 +1515,7 @@ export function AdminPanel({
                 <Plus /> New item
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[92vh] overflow-auto rounded-[28px]">
+            <DialogContent className="admin-dialog max-h-[92vh] overflow-auto rounded-[28px]">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black">
                   Add a menu item
@@ -1537,11 +1606,11 @@ export function AdminPanel({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>{createCategory === "Drinks" ? "Volume / weight" : "Weight"}</Label>
+                    <Label>{activeCreateCategory === "Drinks" ? "Volume / weight" : "Weight"}</Label>
                     <div className="grid grid-cols-[minmax(100px,1fr)_120px] gap-2">
-                      <Input className="min-w-0" name="measure_value" type="number" min="1" placeholder={createCategory === "Drinks" ? "355" : "450"} />
-                      <select name="measure_unit" defaultValue={createCategory === "Drinks" ? "ml" : "g"} key={createCategory} className="h-11 w-full rounded-xl border bg-white px-2">
-                        {createCategory === "Drinks" && <option value="ml">mL</option>}
+                      <Input className="min-w-0" name="measure_value" type="number" min="1" placeholder={activeCreateCategory === "Drinks" ? "355" : "450"} />
+                      <select name="measure_unit" defaultValue={activeCreateCategory === "Drinks" ? "ml" : "g"} key={activeCreateCategory} className="h-11 w-full rounded-xl border bg-white px-2">
+                        {activeCreateCategory === "Drinks" && <option value="ml">mL</option>}
                         <option value="g">grams</option>
                       </select>
                     </div>
@@ -1558,21 +1627,24 @@ export function AdminPanel({
                 </div>
                 <div className="space-y-2">
                   <Label>Category</Label>
+                  <input type="hidden" name="category" value={activeCreateCategory} />
                   <select
-                    name="category"
-                    value={createCategory}
-                    onChange={(event) => setCreateCategory(event.target.value)}
+                    name="category_id"
+                    value={categories.find((entry) => entry.name === activeCreateCategory)?.id || ""}
+                    onChange={(event) => setCreateCategory(categories.find((entry) => entry.id === event.target.value)?.name || activeCreateCategory)}
                     className="h-11 w-full rounded-xl border bg-white px-3"
                   >
-                    <option>Pizzas</option>
-                    <option>Snacks</option>
-                    <option>Sides</option>
-                    <option>Drinks</option>
+                    {!categories.length && <option value="">Create a category first</option>}
+                    {categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
                   </select>
                 </div>
+                <label className="flex items-center gap-3 text-sm font-semibold">
+                  <input name="featured" type="checkbox" className="size-4" />
+                  Feature this product on the storefront
+                </label>
                 <div className="space-y-2">
                   <Label>Sizes and variants</Label>
-                  <VariantEditor name="variants" drinks={createCategory === "Drinks"} />
+                  <VariantEditor name="variants" drinks={activeCreateCategory === "Drinks"} />
                 </div>
                 <div className="space-y-2">
                   <Label>Extras and prices</Label>
@@ -1594,7 +1666,7 @@ export function AdminPanel({
           </Dialog>
         </div>
       </div>
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="admin-stats mb-6 grid gap-4 sm:grid-cols-3">
         <Stat
           icon={<ShoppingBag />}
           label="Orders today"
@@ -1617,8 +1689,8 @@ export function AdminPanel({
           color="bg-[#fff0f1] text-[#d73546]"
         />
       </div>
-      <Tabs defaultValue="orders">
-        <TabsList className="mb-5 rounded-full bg-[#e9edf5] p-1">
+      <Tabs value={adminSection} onValueChange={setAdminSection}>
+        <TabsList className="admin-tabs-list mb-5 rounded-full bg-[#e9edf5] p-1">
           <TabsTrigger value="orders" className="rounded-full px-5">
             Orders
           </TabsTrigger>
@@ -1716,6 +1788,18 @@ export function AdminPanel({
           </div>
         </TabsContent>
         <TabsContent value="menu">
+          <div className="admin-category-manager mb-5 rounded-[26px] border bg-white p-5">
+            <div>
+              <h3 className="text-lg font-black">Menu categories</h3>
+              <p className="mt-1 text-sm text-[#6d7893]">Create categories such as Chinese Food, Desserts, or Combos, then assign products to them.</p>
+            </div>
+            <form action={createMenuCategory} className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Input required name="name" minLength={2} maxLength={60} placeholder="New category name" />
+              <Button type="submit" className="shrink-0 bg-[#2457ff]"><Plus className="size-4" /> Create category</Button>
+            </form>
+            {categories.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{categories.map((entry) => <span key={entry.id} className="rounded-lg border px-3 py-1.5 text-xs font-bold">{entry.name}</span>)}</div>}
+            {saveMessage && <p className="mt-3 text-sm font-bold text-[#2457ff]">{saveMessage}</p>}
+          </div>
           <div className="overflow-hidden rounded-[26px] border bg-white">
             {productsError ? (
               <p className="p-8 text-center font-bold text-red-600">{productsError}</p>
@@ -1776,7 +1860,7 @@ export function AdminPanel({
             open={Boolean(editingItem)}
             onOpenChange={(open) => !open && setEditingItem(null)}
           >
-            <DialogContent className="max-h-[92vh] overflow-auto rounded-[28px]">
+            <DialogContent className="admin-dialog max-h-[92vh] overflow-auto rounded-[28px]">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black">
                   Edit menu item
@@ -1860,13 +1944,16 @@ export function AdminPanel({
                   </div>
                   <div className="space-y-2">
                     <Label>Category</Label>
-                    <select name="category" value={editingItem.category || editingItem.tag} onChange={(event) => setEditingItem({ ...editingItem, category: event.target.value, measure_unit: event.target.value === "Drinks" ? "ml" : "g" })} className="h-11 w-full rounded-xl border bg-white px-3">
-                      <option>Pizzas</option>
-                      <option>Snacks</option>
-                      <option>Sides</option>
-                      <option>Drinks</option>
+                    <input type="hidden" name="category" value={editingItem.category || editingItem.tag} />
+                    <select name="category_id" value={editingItem.category_id || ""} onChange={(event) => { const selected = categories.find((entry) => entry.id === event.target.value); if (selected) setEditingItem({ ...editingItem, category_id: selected.id, category: selected.name, measure_unit: selected.name === "Drinks" ? "ml" : "g" }); }} className="h-11 w-full rounded-xl border bg-white px-3">
+                      <option value="">Select a category</option>
+                      {categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
                     </select>
                   </div>
+                  <label className="flex items-center gap-3 text-sm font-semibold">
+                    <input name="featured" type="checkbox" className="size-4" defaultChecked={Boolean(editingItem.featured)} />
+                    Feature this product on the storefront
+                  </label>
                   <div className="space-y-2">
                     <Label>Sizes and variants</Label>
                     <VariantEditor key={`variants-${editingItem.id}`} name="variants" initial={editingItem.variants || []} drinks={editingItem.category === "Drinks"} />
@@ -1905,6 +1992,8 @@ export function AdminPanel({
         </TabsContent>
       </Tabs>
     </section>
+      </main>
+    </div>
   );
 }
 
@@ -1983,7 +2072,7 @@ function FinanceDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[['Revenue', money(data.summary.revenue)], ['Total costs', money(data.summary.costs)], ['Profit', money(data.summary.profit)], ['Overall margin', `${data.summary.margin.toFixed(1)}%`]].map(([label, value]) => <div key={label} className="rounded-3xl border bg-white p-5"><p className="text-sm font-bold text-[#6d7893]">{label}</p><p className="mt-2 text-3xl font-black">{value}</p></div>)}
       </div>
-      <div className="rounded-[26px] border bg-white p-6"><h4 className="mb-5 text-xl font-black">Revenue and profit</h4><div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.daily}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="date" tick={{ fontSize: 11 }} /><Tooltip formatter={(value) => money(Number(value))} /><Bar dataKey="revenue" fill="#2457ff" radius={[6,6,0,0]} /><Bar dataKey="profit" fill="#42b883" radius={[6,6,0,0]} /></BarChart></ResponsiveContainer></div></div>
+      <div className="rounded-[26px] border bg-white p-6"><h4 className="mb-5 text-xl font-black">Revenue and profit</h4><div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.daily}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="date" tick={{ fontSize: 11 }} /><Tooltip formatter={(value) => money(Number(value))} /><Bar dataKey="revenue" fill="#f6efe2" radius={[6,6,0,0]} /><Bar dataKey="profit" fill="#ff8a5c" radius={[6,6,0,0]} /></BarChart></ResponsiveContainer></div></div>
       <div className="grid gap-5 lg:grid-cols-[1.5fr_.8fr]">
         <div className="rounded-[26px] border bg-white p-6"><h4 className="text-xl font-black">Payments awaiting confirmation</h4><div className="mt-4 space-y-3">{data.pending.length === 0 ? <p className="text-sm text-[#6d7893]">No pending payments.</p> : data.pending.map((order) => <PendingPayment key={order.id} order={order} accounts={data.accounts} onConfirm={confirmPayment} />)}</div></div>
         <div className="rounded-[26px] border bg-white p-6"><h4 className="text-xl font-black">Payment accounts</h4><div className="my-4 space-y-2">{data.accounts.map((account) => <div key={account.id} className="rounded-xl bg-[#f3f6fb] px-4 py-3 text-sm font-bold">{account.name} · {account.type}</div>)}</div><form action={addAccount} className="space-y-3"><Input required name="name" placeholder="Partner bank account" /><select name="type" className="h-11 w-full rounded-xl border bg-white px-3"><option value="bank">Bank account</option><option value="cash">Cash</option></select><Button type="submit" className="w-full rounded-xl bg-[#172039]"><Plus className="size-4" /> Add account</Button></form></div>
