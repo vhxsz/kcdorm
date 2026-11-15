@@ -206,7 +206,7 @@ button.pc-round:active{transform:scale(.88)}
 @media (prefers-reduced-motion:reduce){.lgs *,.lgs *:after,.pc-scrim,.pc-scrim *{animation:none!important;transition:none!important}}
 
 /* Admin: liquid glass. Warm blurred backdrop, translucent panels, cream primary actions. */
-.admin-app,.admin-dialog{--ag-text:#fff;--ag-muted:rgba(255,255,255,.68);--ag-line:rgba(255,255,255,.17);--ag-cream:#f6efe2;--ag-ink:#171411;--ag-warm:#ffd9a8;--ag-ease:cubic-bezier(.2,.8,.2,1);--ag-spring:cubic-bezier(.3,1.5,.5,1);--ag-glass:linear-gradient(180deg,rgba(255,255,255,.15),rgba(255,255,255,.06));--ag-shadow:inset 0 1px 0 rgba(255,255,255,.36),inset 0 -1px 0 rgba(255,255,255,.07),0 26px 50px -30px rgba(0,0,0,.75);--background:transparent;--foreground:#fff;--muted-foreground:rgba(255,255,255,.68);--border:rgba(255,255,255,.17);--input:rgba(255,255,255,.2);--ring:#f6efe2;--primary:#f6efe2;--primary-foreground:#171411;--accent:rgba(255,255,255,.14);--accent-foreground:#fff;color-scheme:dark;color:var(--ag-text);font-family:var(--font-geist),-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.admin-app,.lg-dialog{--ag-text:#fff;--ag-muted:rgba(255,255,255,.68);--ag-line:rgba(255,255,255,.17);--ag-cream:#f6efe2;--ag-ink:#171411;--ag-warm:#ffd9a8;--ag-ease:cubic-bezier(.2,.8,.2,1);--ag-spring:cubic-bezier(.3,1.5,.5,1);--ag-glass:linear-gradient(180deg,rgba(255,255,255,.15),rgba(255,255,255,.06));--ag-shadow:inset 0 1px 0 rgba(255,255,255,.36),inset 0 -1px 0 rgba(255,255,255,.07),0 26px 50px -30px rgba(0,0,0,.75);--background:transparent;--foreground:#fff;--muted-foreground:rgba(255,255,255,.68);--border:rgba(255,255,255,.17);--input:rgba(255,255,255,.2);--ring:#f6efe2;--primary:#f6efe2;--primary-foreground:#171411;--accent:rgba(255,255,255,.14);--accent-foreground:#fff;color-scheme:dark;color:var(--ag-text);font-family:var(--font-geist),-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
 .admin-app{position:relative;isolation:isolate;display:grid;min-height:100vh;grid-template-columns:100px minmax(0,1fr);background:#170e0a}
 .admin-ambient{position:fixed;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover;filter:blur(34px) saturate(155%);transform:scale(1.16)}
 .admin-app:before{position:fixed;inset:0;z-index:-1;background:radial-gradient(60% 50% at 85% 0%,rgba(200,50,31,.38),transparent 70%),radial-gradient(50% 45% at 0% 100%,rgba(255,170,80,.16),transparent 70%),linear-gradient(180deg,rgba(24,14,10,.66),rgba(13,8,6,.88));content:""}
@@ -230,40 +230,40 @@ button.pc-round:active{transform:scale(.88)}
 .admin-preview-notice{width:fit-content;margin-bottom:18px;border:1px solid var(--ag-line);border-radius:999px;background:rgba(255,255,255,.1);padding:8px 14px;color:var(--ag-warm);font-size:.75rem;font-weight:600;letter-spacing:.03em;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
 .admin-kicker{color:var(--ag-warm);font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
 .admin-subtitle{margin-top:.5rem;color:var(--ag-muted);font-size:.95rem}
-:is(.admin-workspace,.admin-dialog) :is(h1,h2,h3,h4){color:#fff;font-family:var(--font-bricolage),var(--font-geist),"Helvetica Neue",Arial,sans-serif;font-weight:700;letter-spacing:-.035em}
+:is(.admin-workspace,.lg-dialog) :is(h1,h2,h3,h4){color:#fff;font-family:var(--font-bricolage),var(--font-geist),"Helvetica Neue",Arial,sans-serif;font-weight:700;letter-spacing:-.035em}
 .admin-workspace h1{font-size:clamp(2.2rem,4.6vw,3.6rem);font-weight:800;letter-spacing:-.055em;line-height:.95}
 
 /* Panels: every former white card becomes a pane of glass. */
 .admin-workspace :is(div,form)[class*="bg-white"]{border:1px solid var(--ag-line);background:var(--ag-glass);box-shadow:var(--ag-shadow);color:#fff;-webkit-backdrop-filter:blur(28px) saturate(170%);backdrop-filter:blur(28px) saturate(170%)}
-:is(.admin-workspace,.admin-dialog) [class*="border"]{border-color:var(--ag-line)}
-:is(.admin-workspace,.admin-dialog) [class*="rounded-[26px]"],:is(.admin-workspace,.admin-dialog) [class*="rounded-[24px]"]{border-radius:30px}
+:is(.admin-workspace,.lg-dialog) [class*="border"]{border-color:var(--ag-line)}
+:is(.admin-workspace,.lg-dialog) [class*="rounded-[26px]"],:is(.admin-workspace,.lg-dialog) [class*="rounded-[24px]"]{border-radius:30px}
 .admin-workspace [class*="rounded-3xl"]{border-radius:26px}
-:is(.admin-workspace,.admin-dialog) [class*="text-[#6d7893]"]{color:var(--ag-muted)}
-:is(.admin-workspace,.admin-dialog) [class*="text-[#2457ff]"]{color:var(--ag-warm)}
-:is(.admin-workspace,.admin-dialog) [class*="text-[#172039]"]{color:#fff}
-:is(.admin-workspace,.admin-dialog) :is([class*="text-red-6"],[class*="text-red-7"]){color:#ffab9f}
-:is(.admin-workspace,.admin-dialog) [class*="bg-red-50"]{border-color:rgba(255,120,105,.4);background:rgba(200,50,31,.24)}
-:is(.admin-workspace,.admin-dialog) :is([class*="bg-[#f3f6fb]"],[class*="bg-[#f7f9fd]"]){background:rgba(255,255,255,.08);color:#fff}
-:is(.admin-workspace,.admin-dialog) [class*="bg-[#edf1ff]"]{background:rgba(255,255,255,.14);color:#fff}
-:is(.admin-workspace,.admin-dialog) [class*="bg-[#fff6cd]"]{background:rgba(255,205,90,.2);color:#ffe08a}
-:is(.admin-workspace,.admin-dialog) [class*="bg-[#fff0f1]"]{background:rgba(255,110,95,.22);color:#ffb3a8}
-:is(.admin-workspace,.admin-dialog) [class*="bg-[#eaf8ed]"]{background:rgba(110,220,150,.2);color:#a9f2c0}
+:is(.admin-workspace,.lg-dialog) [class*="text-[#6d7893]"]{color:var(--ag-muted)}
+:is(.admin-workspace,.lg-dialog) [class*="text-[#2457ff]"]{color:var(--ag-warm)}
+:is(.admin-workspace,.lg-dialog) [class*="text-[#172039]"]{color:#fff}
+:is(.admin-workspace,.lg-dialog) :is([class*="text-red-6"],[class*="text-red-7"]){color:#ffab9f}
+:is(.admin-workspace,.lg-dialog) [class*="bg-red-50"]{border-color:rgba(255,120,105,.4);background:rgba(200,50,31,.24)}
+:is(.admin-workspace,.lg-dialog) :is([class*="bg-[#f3f6fb]"],[class*="bg-[#f7f9fd]"]){background:rgba(255,255,255,.08);color:#fff}
+:is(.admin-workspace,.lg-dialog) [class*="bg-[#edf1ff]"]{background:rgba(255,255,255,.14);color:#fff}
+:is(.admin-workspace,.lg-dialog) [class*="bg-[#fff6cd]"]{background:rgba(255,205,90,.2);color:#ffe08a}
+:is(.admin-workspace,.lg-dialog) [class*="bg-[#fff0f1]"]{background:rgba(255,110,95,.22);color:#ffb3a8}
+:is(.admin-workspace,.lg-dialog) [class*="bg-[#eaf8ed]"]{background:rgba(110,220,150,.2);color:#a9f2c0}
 
 /* Fields and buttons */
-:is(.admin-workspace,.admin-dialog) :is(input:not([type="checkbox"]):not([type="file"]),select){min-height:44px;border:1px solid rgba(255,255,255,.2);border-radius:14px;background:rgba(0,0,0,.26);box-shadow:inset 0 1px 2px rgba(0,0,0,.35);color:#fff;transition:border-color .2s ease,background-color .2s ease}
-:is(.admin-workspace,.admin-dialog) :is(input,select):hover{border-color:rgba(255,255,255,.34)}
-:is(.admin-workspace,.admin-dialog) input::placeholder{color:rgba(255,255,255,.5)}
-:is(.admin-workspace,.admin-dialog) input[type="checkbox"]{accent-color:var(--ag-cream)}
-:is(.admin-workspace,.admin-dialog) :is(button,input,select,a):focus-visible{outline:2px solid #fff;outline-offset:2px}
-:is(.admin-workspace,.admin-dialog) button[data-slot="button"]{min-height:44px;border-radius:999px;font-weight:600;transition:background-color .2s ease,transform .3s var(--ag-spring)}
-:is(.admin-workspace,.admin-dialog) button[data-slot="button"]:active{transform:scale(.96)}
-:is(.admin-workspace,.admin-dialog) button[data-variant="default"]{background:var(--ag-cream);color:var(--ag-ink);box-shadow:0 12px 24px -14px rgba(0,0,0,.8)}
-:is(.admin-workspace,.admin-dialog) button[data-variant="default"]:hover{background:#fff}
-:is(.admin-workspace,.admin-dialog) button[data-variant="default"][class*="bg-[#172039]"],:is(.admin-workspace,.admin-dialog) button[data-variant="outline"]{border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.28);color:#fff}
-:is(.admin-workspace,.admin-dialog) button[data-variant="default"][class*="bg-[#172039]"]:hover,:is(.admin-workspace,.admin-dialog) button[data-variant="outline"]:hover{background:rgba(255,255,255,.2);color:#fff}
-:is(.admin-workspace,.admin-dialog) button[data-variant="outline"][class*="text-red"]{color:#ffab9f}
-:is(.admin-workspace,.admin-dialog) button[data-variant="ghost"]{color:#fff}
-:is(.admin-workspace,.admin-dialog) button[data-variant="ghost"]:hover{background:rgba(255,255,255,.14)}
+:is(.admin-workspace,.lg-dialog) :is(input:not([type="checkbox"]):not([type="file"]),select){min-height:44px;border:1px solid rgba(255,255,255,.2);border-radius:14px;background:rgba(0,0,0,.26);box-shadow:inset 0 1px 2px rgba(0,0,0,.35);color:#fff;transition:border-color .2s ease,background-color .2s ease}
+:is(.admin-workspace,.lg-dialog) :is(input,select):hover{border-color:rgba(255,255,255,.34)}
+:is(.admin-workspace,.lg-dialog) input::placeholder{color:rgba(255,255,255,.5)}
+:is(.admin-workspace,.lg-dialog) input[type="checkbox"]{accent-color:var(--ag-cream)}
+:is(.admin-workspace,.lg-dialog) :is(button,input,select,a):focus-visible{outline:2px solid #fff;outline-offset:2px}
+:is(.admin-workspace,.lg-dialog) button[data-slot="button"]{min-height:44px;border-radius:999px;font-weight:600;transition:background-color .2s ease,transform .3s var(--ag-spring)}
+:is(.admin-workspace,.lg-dialog) button[data-slot="button"]:active{transform:scale(.96)}
+:is(.admin-workspace,.lg-dialog) button[data-variant="default"]{background:var(--ag-cream);color:var(--ag-ink);box-shadow:0 12px 24px -14px rgba(0,0,0,.8)}
+:is(.admin-workspace,.lg-dialog) button[data-variant="default"]:hover{background:#fff}
+:is(.admin-workspace,.lg-dialog) button[data-variant="default"][class*="bg-[#172039]"],:is(.admin-workspace,.lg-dialog) button[data-variant="outline"]{border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.28);color:#fff}
+:is(.admin-workspace,.lg-dialog) button[data-variant="default"][class*="bg-[#172039]"]:hover,:is(.admin-workspace,.lg-dialog) button[data-variant="outline"]:hover{background:rgba(255,255,255,.2);color:#fff}
+:is(.admin-workspace,.lg-dialog) button[data-variant="outline"][class*="text-red"]{color:#ffab9f}
+:is(.admin-workspace,.lg-dialog) button[data-variant="ghost"]{color:#fff}
+:is(.admin-workspace,.lg-dialog) button[data-variant="ghost"]:hover{background:rgba(255,255,255,.14)}
 
 /* Stats */
 .admin-workspace .admin-stats{gap:14px}
@@ -292,11 +292,24 @@ button.pc-round:active{transform:scale(.88)}
 .admin-workspace .recharts-tooltip-cursor{fill:rgba(255,255,255,.08)}
 
 /* Product dialogs live in a portal, so they carry their own glass. */
-.admin-dialog{border:1px solid rgba(255,255,255,.2);background:linear-gradient(180deg,rgba(48,32,25,.8),rgba(22,15,12,.9));box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 40px 90px -30px rgba(0,0,0,.9);-webkit-backdrop-filter:blur(40px) saturate(170%);backdrop-filter:blur(40px) saturate(170%)}
-.admin-dialog label{color:#fff}
-.admin-dialog label[class*="border-dashed"]{border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.06)}
-.admin-dialog .reference-image p{color:#ffab9f}
+.lg-dialog{border:1px solid rgba(255,255,255,.2);background:linear-gradient(180deg,rgba(48,32,25,.8),rgba(22,15,12,.9));box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 40px 90px -30px rgba(0,0,0,.9);-webkit-backdrop-filter:blur(40px) saturate(170%);backdrop-filter:blur(40px) saturate(170%)}
+.lg-dialog label{color:#fff}
+.lg-dialog label[class*="border-dashed"]{border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.06)}
+.lg-dialog .reference-image p{color:#ffab9f}
 
+/* Storefront overlays (cart, checkout, my orders) share the dialog glass. */
+.lg-dialog div[class*="bg-white"]{background:transparent;color:#fff}
+.lg-dialog [class*="text-[#59647e]"]{color:var(--ag-muted)}
+.lg-dialog button[class*="bg-[#2457ff]"]{background:var(--ag-cream);color:var(--ag-ink)}
+.lg-dialog button[class*="size-7"]{width:36px;height:36px;transition:transform .3s var(--ag-spring),background-color .2s ease}
+.lg-dialog button[class*="size-7"]:active{transform:scale(.88)}
+.lg-dialog button[class*="size-7"][class*="border"]{border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff}
+.lg-dialog button[class*="h-13"]{min-height:54px;font-size:1rem;font-weight:700}
+.lg-dialog label[class*="cursor-pointer"][class*="border"]{border-radius:20px;background:rgba(255,255,255,.07);transition:background-color .2s ease,border-color .2s ease}
+.lg-dialog label:has([data-state="checked"]){border-color:var(--ag-cream);background:rgba(255,255,255,.16)}
+.lg-dialog [class*="size-20"][class*="rounded-2xl"]{border-radius:22px;box-shadow:0 12px 24px -14px rgba(0,0,0,.8)}
+.lg-sheet{border-width:0 0 0 1px}
+@media (min-width:640px){.lg-sheet{border-radius:34px 0 0 34px;overflow:hidden}}
 @keyframes admin-rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 @media (max-width:899px){
 .admin-app{grid-template-columns:1fr;padding-bottom:92px}
@@ -314,4 +327,4 @@ button.pc-round:active{transform:scale(.88)}
 .admin-workspace [role="tabpanel"]>div[class*="overflow-hidden"]>div{padding:16px}
 .admin-workspace [role="tabpanel"]>div[class*="overflow-hidden"]>div[class*="flex"]{flex-wrap:wrap}
 }
-@media (prefers-reduced-motion:reduce){.admin-app *,.admin-dialog *,.admin-rail{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion:reduce){.admin-app *,.lg-dialog *,.admin-rail{animation:none!important;transition:none!important}}

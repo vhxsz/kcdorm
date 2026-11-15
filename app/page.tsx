@@ -587,7 +587,7 @@ export function Storefront({ businessSlug }: { businessSlug: string }) {
                 <ShoppingBag className="size-4" /> Cart <span>{count}</span>
               </Button>
             </SheetTrigger>
-            <SheetContent className="w-full border-0 p-0 sm:max-w-md">
+            <SheetContent className="lg-dialog lg-sheet w-full p-0 sm:max-w-md">
               <Cart
                 businessSlug={businessSlug}
                 items={items}
@@ -820,7 +820,7 @@ function CustomerOrders({ businessSlug }: { businessSlug: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button variant="outline" className="h-11 rounded-full px-4"><UserRound className="size-4" /><span className="hidden sm:inline">My orders</span></Button></DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-auto rounded-[28px] sm:max-w-lg">
+      <DialogContent className="lg-dialog max-h-[90vh] overflow-auto rounded-[28px] sm:max-w-lg">
         <DialogHeader><DialogTitle className="text-2xl font-black">My orders</DialogTitle></DialogHeader>
         <div className="rounded-2xl bg-[#edf1ff] p-5"><p className="text-sm text-[#59647e]">Total spent on confirmed orders</p><p className="text-3xl font-black">${totalSpent.toFixed(2)} CAD</p></div>
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
@@ -930,7 +930,7 @@ function Checkout({
           Continue to checkout
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[92vh] overflow-auto rounded-[28px] sm:max-w-lg">
+      <DialogContent className="lg-dialog max-h-[92vh] overflow-auto rounded-[28px] sm:max-w-lg">
         {sent ? (
           <div className="py-10 text-center">
             <div className="mx-auto mb-5 grid size-20 place-items-center rounded-full bg-[#eaf8ed] text-3xl">
@@ -1515,7 +1515,7 @@ export function AdminPanel({
                 <Plus /> New item
               </Button>
             </DialogTrigger>
-            <DialogContent className="admin-dialog max-h-[92vh] overflow-auto rounded-[28px]">
+            <DialogContent className="lg-dialog max-h-[92vh] overflow-auto rounded-[28px]">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black">
                   Add a menu item
@@ -1860,7 +1860,7 @@ export function AdminPanel({
             open={Boolean(editingItem)}
             onOpenChange={(open) => !open && setEditingItem(null)}
           >
-            <DialogContent className="admin-dialog max-h-[92vh] overflow-auto rounded-[28px]">
+            <DialogContent className="lg-dialog max-h-[92vh] overflow-auto rounded-[28px]">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black">
                   Edit menu item
